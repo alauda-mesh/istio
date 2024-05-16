@@ -1,0 +1,43 @@
+apiVersion: builds.katanomi.dev/v1alpha1
+kind: Build
+spec:
+  workspaces:
+    - description: |
+        This workspace is shared among all the pipeline tasks to read/write common resources
+      name: source
+  tasks:
+    - name: build-distroless-base
+      timeout: 30m
+      retries: 0
+      taskRef:
+        kind: ClusterTask
+        name: alauda-build-image
+      workspaces:
+        - name: source
+          workspace: source
+      when: []
+      params:
+        - name: container-image
+          value: build-harbor.alauda.cn/asm/istio-base-distroless
+        - name: container-image-tag
+          value: 1.22-dev.$(build.git.lastCommit.shortID)
+        - name: dockerfile
+          value: ./docker/Dockerfile.distroless
+        - name: context
+          value: ./docker
+  git:
+    options:
+      depth: 1
+      timeout: 10m
+      retries: 0
+      resources:
+        limits:
+          cpu: 200m
+          memory: 200Mi
+        requests:
+          cpu: 200m
+          memory: 200Mi
+  runTemplate:
+    spec:
+      taskRunSpecs: []
+
