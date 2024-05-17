@@ -5,6 +5,8 @@ go 1.22.0
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
+replace github.com/envoyproxy/go-control-plane => gomod.alauda.cn/istio/go-control-plane v0.0.0-20240517021301-2aaa063f54bc
+
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
 	cloud.google.com/go/logging v1.9.0
