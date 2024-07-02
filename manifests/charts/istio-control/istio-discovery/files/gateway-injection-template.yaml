@@ -13,6 +13,14 @@ metadata:
   }
 spec:
   #https://github.com/istio/istio/pull/49958 看看官方怎么说，asm肯定要支持老内核的
+  securityContext:
+  {{- if .Values.gateways.securityContext }}
+    {{- toYaml .Values.gateways.securityContext | nindent 4 }}
+  {{- else }}
+    sysctls:
+    - name: net.ipv4.ip_unprivileged_port_start
+      value: "0"
+  {{- end }}
   containers:
   - name: istio-proxy
   {{- if contains "/" .Values.global.proxy.image }}
