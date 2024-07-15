@@ -19,6 +19,9 @@ import (
 	"sync"
 	"testing"
 
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	operatorv1alpha1 "istio.io/api/operator/v1alpha1"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -41,6 +44,31 @@ var (
 	//go:embed testdata/iop-test-gw-2.yaml
 	iopTestGwData2 []byte
 )
+
+func Test_filterOutGateways(t *testing.T) {
+	pids := []string{
+		"istio-egressgateway-b54bc8d4-lrwgr.istio-system",
+		"istio-ingressgateway-75c67976bd-w5sgs.istio-system",
+		"my-pod.default",
+	}
+	pids = filterOutGateways(pids, []*operatorv1alpha1.GatewaySpec{
+		{
+			Enabled:   wrappers.Bool(true),
+			Namespace: "istio-system",
+			Name:      "istio-ingressgateway",
+		},
+	})
+	assert.Equal(t, len(pids), 2)
+	pids = filterOutGateways(pids, []*operatorv1alpha1.GatewaySpec{
+		{
+			Enabled:   wrappers.Bool(true),
+			Namespace: "istio-system",
+			Name:      "istio-egressgateway",
+		},
+	})
+	assert.Equal(t, len(pids), 1)
+	assert.Equal(t, pids[0], "my-pod.default")
+}
 
 func applyResourcesIntoCluster(t *testing.T, h *HelmReconciler, manifestMap name.ManifestMap) {
 	for cn, ms := range manifestMap.Consolidated() {
