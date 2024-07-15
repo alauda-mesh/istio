@@ -19,9 +19,6 @@ import (
 	"sync"
 	"testing"
 
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
-	operatorv1alpha1 "istio.io/api/operator/v1alpha1"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -51,21 +48,9 @@ func Test_filterOutGateways(t *testing.T) {
 		"istio-ingressgateway-75c67976bd-w5sgs.istio-system",
 		"my-pod.default",
 	}
-	pids = filterOutGateways(pids, []*operatorv1alpha1.GatewaySpec{
-		{
-			Enabled:   wrappers.Bool(true),
-			Namespace: "istio-system",
-			Name:      "istio-ingressgateway",
-		},
-	})
+	pids = filterOutGateways(pids, "istio-ingressgateway", "istio-system")
 	assert.Equal(t, len(pids), 2)
-	pids = filterOutGateways(pids, []*operatorv1alpha1.GatewaySpec{
-		{
-			Enabled:   wrappers.Bool(true),
-			Namespace: "istio-system",
-			Name:      "istio-egressgateway",
-		},
-	})
+	pids = filterOutGateways(pids, "istio-egressgateway", "istio-system")
 	assert.Equal(t, len(pids), 1)
 	assert.Equal(t, pids[0], "my-pod.default")
 }

@@ -101,25 +101,13 @@ func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
 	})
 }
 
-func filterOutGateways(pids []string, gateways []*v1alpha1.GatewaySpec) []string {
+func filterOutGateways(pids []string, name, namespace string) []string {
 	result := make([]string, 0, len(pids))
 	for _, pid := range pids {
-		filtered := false
-
-		for _, gw := range gateways {
-			if !gw.Enabled.GetValue() {
-				continue
-			}
-
-			if strings.HasPrefix(pid, gw.Name+"-") && strings.HasSuffix(pid, "."+gw.Namespace) {
-				filtered = true
-				break
-			}
+		if strings.HasPrefix(pid, name+"-") && strings.HasSuffix(pid, "."+namespace) {
+			continue
 		}
-
-		if !filtered {
-			result = append(result, pid)
-		}
+		result = append(result, pid)
 	}
 	return result
 }
@@ -169,8 +157,10 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 
 			// NOTE(timonwong) Filter out gateways or we stuck here because gateways may still
 			// be connected to the istio control plane.
-			pids = filterOutGateways(pids, iopSpec.Components.IngressGateways)
-			pids = filterOutGateways(pids, iopSpec.Components.EgressGateways)
+			// we can not get the act value from iopSpec.Components.IngressGateways when it is delete,the value is null
+			pids = filterOutGateways(pids, "istio-ingressgateway", "istio-system")
+			pids = filterOutGateways(pids, "istio-egressgateway", "istio-system")
+			pids = filterOutGateways(pids, "istio-eastwestgateway", "istio-system")
 
 			if len(pids) != 0 {
 				msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
