@@ -274,10 +274,10 @@ func (l listenerBinding) Primary() string {
 
 // Extra returns any additional bindings. This is always empty if dual stack is disabled
 func (l listenerBinding) Extra() []string {
-	if len(l.binds) > 1 {
-		return l.binds[1:]
+	if !features.EnableDualStack || len(l.binds) == 1 {
+		return nil
 	}
-	return nil
+	return l.binds[1:]
 }
 
 type outboundListenerEntry struct {
@@ -830,8 +830,9 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 				} else {
 					// Address is a CIDR. Fall back to 0.0.0.0 and
 					// filter chain match
+					// TODO: this probably needs to handle dual stack better
 					listenerOpts.bind.binds = actualWildcards
-					listenerOpts.cidr = append([]string{svcListenAddress}, svcExtraListenAddresses...)
+					listenerOpts.cidr = svcListenAddress
 				}
 			}
 		}
@@ -1070,7 +1071,7 @@ type outboundListenerOpts struct {
 	proxy *model.Proxy
 
 	bind listenerBinding
-	cidr []string
+	cidr string
 
 	port    *model.Port
 	service *model.Service
