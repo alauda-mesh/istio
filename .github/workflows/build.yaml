@@ -1,0 +1,55 @@
+name: Build Istio Proxy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["istio-1.24"]
+  pull_request:
+    branches: ["istio-1.24"]
+
+jobs:
+  build:
+    name: Build (${{ matrix.machine-arch }})
+    runs-on: [self-hosted, Linux, "${{ matrix.machine-arch }}"]
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - machine-arch: arm64
+            arch: arm64
+          - machine-arch: x64
+            arch: amd64
+
+    env:
+      http_proxy: http://192.168.144.12:7890
+      https_proxy: http://192.168.144.12:7890
+      no_proxy: localhost,127.0.0.1,192.168.0.0/16,.cn
+
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Istio Tag
+        run: |
+          TAG=latest
+
+      - name: Login Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: build-harbor.alauda.cn
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Build and Push
+        env:
+          TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
+          IMAGE_VERSION: release-1.24-bccd228953b7abf90170da1419699d38e95329fb
+          DOCKER_BUILD_VARIANTS: distroless
+          DOCKER_ARCHITECTURES: linux/amd64,linux/arm64
+          HUB: build-harbor.alauda.cn/asm
+          DOCKER_TARGETS: "install-cni istioctl pilot proxyv2 ztunnel"
+
+        run: |
+          make docker.push
