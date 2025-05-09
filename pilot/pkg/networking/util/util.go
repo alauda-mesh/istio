@@ -95,6 +95,9 @@ const (
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
 var ALPNH2Only = pm.ALPNH2Only
 
+// ALPNH11Only advertises that Proxy is going to use HTTP/1.1 when talking to the cluster.
+var ALPNH11Only = []string{"http/1.1"}
+
 // ALPNInMeshH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
 // Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.

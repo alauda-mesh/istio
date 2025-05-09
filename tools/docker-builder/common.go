@@ -23,7 +23,8 @@ func extractTags(a Args, target, variant string, hasDoubleDefault bool) []string
 	tags := []string{}
 	for _, h := range a.Hubs {
 		for _, tg := range a.Tags {
-			if variant == DefaultVariant {
+			// distroless is our new default :)
+			if variant == DistrolessVariant {
 				// For default, we have no suffix
 				tags = append(tags, fmt.Sprintf("%s/%s:%s%s", h, target, tg, a.suffix))
 			} else {

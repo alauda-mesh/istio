@@ -170,6 +170,28 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 }
 
 func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller, proxy *model.Proxy) *discovery.Resource {
+	resources := make([]SecretResource, 0, 2)
+	resources = append(resources, sr)
+
+	// 构建双读 secret，先从本地命名空间读取，如果读取不到再读取 rootNamespace 命名空间
+	rootNamespace := s.meshConfig.RootNamespace
+	if !sr.FullyQualified && sr.Namespace != rootNamespace {
+		clone := sr
+		clone.Namespace = rootNamespace
+		resources = append(resources, clone)
+	}
+
+	for i, sr := range resources {
+		isTerminal := i == len(resources)-1
+		r := s.generateSecretResource(sr, configClusterSecrets, proxyClusterSecrets, proxy, isTerminal)
+		if r != nil {
+			return r
+		}
+	}
+	return nil
+}
+
+func (s *SecretGen) generateSecretResource(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller, proxy *model.Proxy, isTerminal bool) *discovery.Resource {
 	// Fetch the appropriate cluster's secret, based on the credential type
 	var secretController credscontroller.Controller
 	switch sr.ResourceType {
@@ -183,8 +205,10 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	if isCAOnlySecret {
 		caCertInfo, err := secretController.GetCaCert(sr.Name, sr.Namespace)
 		if err != nil {
-			pilotSDSCertificateErrors.Increment()
-			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
+			if isTerminal {
+				pilotSDSCertificateErrors.Increment()
+				log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
+			}
 			return nil
 		}
 		if err := ValidateCertificate(caCertInfo.Cert); err != nil {
@@ -195,8 +219,10 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	}
 	certInfo, err := secretController.GetCertInfo(sr.Name, sr.Namespace)
 	if err != nil {
-		pilotSDSCertificateErrors.Increment()
-		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
+		if isTerminal {
+			pilotSDSCertificateErrors.Increment()
+			log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
+		}
 		return nil
 	}
 	if err := ValidateCertificate(certInfo.Cert); err != nil {
