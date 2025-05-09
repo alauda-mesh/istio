@@ -1,0 +1,75 @@
+name: Pull Request Builder
+
+on:
+  pull_request:
+    branches: ["istio-1.24"]
+
+env:
+  http_proxy: ${{ vars.http_proxy }}
+  https_proxy: ${{ vars.https_proxy }}
+  no_proxy: ${{ vars.no_proxy }}
+
+jobs:
+  build:
+    name: Build
+    runs-on: [self-hosted, linux, x64]
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Login Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: build-harbor.alauda.cn
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Install GH CLI
+        uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
+
+      - name: Git describe
+        id: ghd
+        uses: proudust/gh-describe@v2
+
+      - name: Setup Image Tag
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          elif [[ "${{ github.event_name }}" == "push" && "${{ startsWith(github.ref, 'refs/heads/') }}" == "true" ]]; then
+            VERSION=${{ steps.ghd.outputs.describe }}
+            TAG=$(echo "${VERSION}" | sed -E 's/-([0-9]+)-g/-alpha.\1./; s/-g/./')
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            VERSION=${{ steps.ghd.outputs.tag }}
+            PR_ID=${{ github.event.pull_request.number }}
+            BUILD_NO=${{ github.run_number }}
+            TAG="${VERSION}-pr.${PR_ID}.${BUILD_NO}"
+          else
+            echo "Unknown tag"
+            exit 1
+          fi
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Build and Push
+        env:
+          TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
+          ISTIO_BASE_REGISTRY: gcr.m.daocloud.io/istio-release
+          IMAGE_VERSION: release-1.24-bccd228953b7abf90170da1419699d38e95329fb
+          DOCKER_BUILD_VARIANTS: distroless
+          DOCKER_ARCHITECTURES: linux/amd64,linux/arm64
+          HUB: build-harbor.alauda.cn/asm
+          DOCKER_TARGETS: "install-cni istioctl pilot proxyv2 ztunnel"
+          # For report_build_info.sh
+          IGNORE_DIRTY_TREE: "1"
+          GIT_DESCRIBE_TAG: ${{ env.TAG }}
+
+        run: |
+          make docker.push
