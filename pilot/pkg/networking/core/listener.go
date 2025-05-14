@@ -127,7 +127,17 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	proxy *model.Proxy, mesh *meshconfig.MeshConfig, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
 ) *auth.DownstreamTlsContext {
-	alpnByTransport := util.ALPNHttp
+	var alpnByTransport []string
+
+	// 只对网关生效 alpn protocol 改动 (只使用 HTTP/1.1)
+	// NOTE(timonwong) 不优雅, 但是简单所以就这样吧
+	const annotationH2Enabled = "asm.cpaas.io/h2-enabled"
+	if proxy.Metadata.Annotations[annotationH2Enabled] == "no" {
+		alpnByTransport = util.ALPNH11Only
+	} else {
+		alpnByTransport = util.ALPNHttp
+	}
+
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
 		alpnByTransport = util.ALPNHttp3OverQUIC
 	} else if transportProtocol == istionetworking.TransportProtocolTCP &&

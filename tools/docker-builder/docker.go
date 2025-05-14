@@ -227,7 +227,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			}
 
 			// These images do not actually use distroless even when specified. So skip to avoid extra building
-			if strings.HasPrefix(target, "app_") && variant == DistrolessVariant {
+			if strings.HasPrefix(target, "app_") && (variant == DistrolessVariant || variant == DefaultVariant) {
 				continue
 			}
 			p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target))

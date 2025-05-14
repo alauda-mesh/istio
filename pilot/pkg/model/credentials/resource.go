@@ -50,6 +50,8 @@ type SecretResource struct {
 	ResourceName string
 	// Cluster is the cluster the secret should be fetched from.
 	Cluster cluster.ID
+	// FullyQualified indicates whether the resource if fully qualified before parsing, eg: istio-system/secret.
+	FullyQualified bool
 }
 
 func (sr SecretResource) Key() string {
@@ -97,7 +99,7 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 			namespace = split[0]
 			name = split[1]
 		}
-		return SecretResource{ResourceType: KubernetesSecretType, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: proxyCluster}, nil
+		return SecretResource{ResourceType: KubernetesSecretType, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: proxyCluster, FullyQualified: len(split) > 1}, nil
 	} else if strings.HasPrefix(resourceName, kubernetesGatewaySecretTypeURI) {
 		// Valid formats:
 		// * kubernetes-gateway://secret-namespace/secret-name
@@ -115,7 +117,7 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 		if len(name) == 0 {
 			return SecretResource{}, fmt.Errorf("invalid resource name %q. Expected name", resourceName)
 		}
-		return SecretResource{ResourceType: KubernetesGatewaySecretType, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: configCluster}, nil
+		return SecretResource{ResourceType: KubernetesGatewaySecretType, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: configCluster, FullyQualified: true}, nil
 	}
 	return SecretResource{}, fmt.Errorf("unknown resource type: %v", resourceName)
 }
