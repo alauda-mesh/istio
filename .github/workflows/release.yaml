@@ -1,0 +1,77 @@
+name: Release Alauda Istio
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  release:
+    name: Release
+    runs-on: [self-hosted, linux, x64]
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Login Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: build-harbor.alauda.cn
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Install GH CLI
+        uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
+
+      - name: Git describe
+        id: ghd
+        uses: proudust/gh-describe@v2
+
+      - name: Setup Image Tag
+        run: |
+          echo "TAG=${{ steps.ghd.outputs.tag }}" >> $GITHUB_ENV
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          cache-image: false
+
+      - name: Set up Docker Buildx
+        run: |
+          if ! docker buildx ls | grep -q container-builder; then
+            # docker buildx create \
+            #   --name container-builder --driver docker-container \
+            #   --buildkitd-flags "--allow-insecure-entitlement security.insecure --allow-insecure-entitlement network.host" \
+            #   --platform linux/amd64,linux/arm64 --use
+            echo "Docker Buildx it not configured correctly!"
+            exit 1
+          fi
+
+      - name: Build and Push
+        env:
+          TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
+          ISTIO_BASE_REGISTRY: gcr.m.daocloud.io/istio-release
+          IMAGE_VERSION: release-1.24-bccd228953b7abf90170da1419699d38e95329fb
+          HUB: build-harbor.alauda.cn/asm
+          # For report_build_info.sh
+          IGNORE_DIRTY_TREE: "1"
+          GIT_DESCRIBE_TAG: ${{ env.TAG }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          CI: "1"
+        run: |
+          # Install bom tool which is required for release-builder
+          go install sigs.k8s.io/bom/cmd/bom@latest
+          
+          export WORK_DIR=/tmp/istio-build
+          export S3_ENDPOINT=https://124f7899b936c5b3a37cdd5c22538c58.r2.cloudflarestorage.com
+          export S3_BUCKET="istio-release"
+          
+          sudo rm -rf "${WORK_DIR}" && mkdir -p "${WORK_DIR}"
+          ./alauda/release.sh
