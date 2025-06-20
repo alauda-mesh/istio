@@ -13,6 +13,9 @@ jobs:
       - name: Checkout Source
         uses: actions/checkout@v4
 
+      - name: Install GH CLI
+        uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
+
       - name: Login Harbor
         uses: docker/login-action@v3
         with:
@@ -20,8 +23,12 @@ jobs:
           username: ${{ secrets.HARBOR_USERNAME }}
           password: ${{ secrets.HARBOR_PASSWORD }}
 
-      - name: Install GH CLI
-        uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Git describe
         id: ghd
@@ -55,10 +62,11 @@ jobs:
 
       - name: Build and Push
         env:
-          TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
-          ISTIO_BASE_REGISTRY: gcr.m.daocloud.io/istio-release
-          IMAGE_VERSION: release-1.24-bccd228953b7abf90170da1419699d38e95329fb
           HUB: build-harbor.alauda.cn/asm
+          ISTIO_BASE_REGISTRY: ghcr.io/alauda-mesh
+          BASE_VERSION: 2025-06-20T13-11-09
+          TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
+          IMAGE_VERSION: release-1.24-bccd228953b7abf90170da1419699d38e95329fb
           # For report_build_info.sh
           IGNORE_DIRTY_TREE: "1"
           GIT_DESCRIBE_TAG: ${{ env.TAG }}
