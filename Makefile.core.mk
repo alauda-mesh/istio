@@ -196,11 +196,13 @@ format: fmt ## Auto formats all code. This should be run before sending a PR.
 
 fmt: format-go format-python tidy-go
 
+EXTRA_RELEASE_LDFLAGS ?=
+
 ifeq ($(DEBUG),1)
 # gobuild script uses custom linker flag to set the variables.
 RELEASE_LDFLAGS=''
 else
-RELEASE_LDFLAGS='-extldflags -static -s -w'
+RELEASE_LDFLAGS='$(EXTRA_RELEASE_LDFLAGS) -extldflags -static -s -w'
 endif
 
 # List of all binaries to build
