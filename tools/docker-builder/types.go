@@ -157,9 +157,9 @@ func (p BuildPlan) Find(n string) *ImagePlan {
 // If both DebugVariant and DefaultVariant are built, there will be a single build but multiple tags
 const (
 	// PrimaryVariant is the variant that DefaultVariant actually builds
-	PrimaryVariant = DebugVariant
+	PrimaryVariant = DistrolessVariant
 
-	DefaultVariant    = "default"
+	DefaultVariant    = "default" // default is an alias for distroless now
 	DebugVariant      = "debug"
 	DistrolessVariant = "distroless"
 )
