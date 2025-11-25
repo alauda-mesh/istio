@@ -48,7 +48,7 @@ ${DEPENDENCIES:-$(cat <<EOD
     branch: master
   tools:
     git: https://github.com/istio/tools
-    branch: release-1.26
+    branch: release-1.28
   envoy:
     git: https://github.com/envoyproxy/envoy
     auto: proxy_workspace
