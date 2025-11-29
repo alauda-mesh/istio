@@ -69,7 +69,7 @@ jobs:
         env:
           HUB: build-harbor.alauda.cn/asm
           ISTIO_BASE_REGISTRY: ghcr.io/alauda-mesh
-          BASE_VERSION: 2025-06-20T13-11-09
+          BASE_VERSION: 2025-11-25T05-48-03
           TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
           IMAGE_VERSION: release-1.24-bccd228953b7abf90170da1419699d38e95329fb
           DOCKER_BUILD_VARIANTS: distroless
