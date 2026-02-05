@@ -71,7 +71,7 @@ jobs:
           ISTIO_BASE_REGISTRY: ghcr.io/alauda-mesh
           BASE_VERSION: 2026-02-05t03-49-23
           TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
-          IMAGE_VERSION: release-1.24-bccd228953b7abf90170da1419699d38e95329fb
+          IMAGE_VERSION: release-1.26-70fd8a76e8fc5feb19b8499f0fafb75f97325aee
           # For report_build_info.sh
           IGNORE_DIRTY_TREE: "1"
           GIT_DESCRIBE_TAG: ${{ env.TAG }}
