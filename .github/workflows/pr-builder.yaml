@@ -2,7 +2,7 @@ name: Pull Request Builder
 
 on:
   pull_request:
-    branches: ["istio-1.26"]
+    branches: [ "istio-1.26" ]
 
 env:
   http_proxy: ${{ vars.http_proxy }}
@@ -12,7 +12,7 @@ env:
 jobs:
   build:
     name: Build
-    runs-on: [self-hosted, linux, x64]
+    runs-on: [ self-hosted, linux, x64 ]
 
     steps:
       - name: Checkout Source
@@ -69,7 +69,7 @@ jobs:
         env:
           HUB: build-harbor.alauda.cn/asm
           ISTIO_BASE_REGISTRY: ghcr.io/alauda-mesh
-          BASE_VERSION: 2026-02-05t03-49-23
+          BASE_VERSION: 2026-04-17T10-04-11
           TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
           IMAGE_VERSION: release-1.26-70fd8a76e8fc5feb19b8499f0fafb75f97325aee
           DOCKER_BUILD_VARIANTS: distroless
