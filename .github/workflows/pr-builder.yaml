@@ -2,7 +2,7 @@ name: Pull Request Builder
 
 on:
   pull_request:
-    branches: [ "istio-1.28" ]
+    branches: [ "istio-1.28*" ]
 
 env:
   http_proxy: ${{ vars.http_proxy }}
