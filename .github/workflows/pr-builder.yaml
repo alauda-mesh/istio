@@ -24,6 +24,31 @@ jobs:
       - name: Checkout Source
         uses: actions/checkout@v5
 
+      - name: Add image provenance metadata
+        shell: bash
+        env:
+          SOURCE_REPOSITORY: ${{ github.server_url }}/${{ github.repository }}
+          SOURCE_REVISION: ${{ github.sha }}
+          SOURCE_REF: ${{ github.ref }}
+        run: |
+          while IFS= read -r dockerfile; do
+            if [[ ! -f "${dockerfile}" ]]; then
+              echo "Dockerfile not found: ${dockerfile}" >&2
+              exit 1
+            fi
+            {
+              printf '\n'
+              printf 'LABEL org.opencontainers.image.source="%s"\n' "${SOURCE_REPOSITORY}"
+              printf 'LABEL org.opencontainers.image.revision="%s"\n' "${SOURCE_REVISION}"
+              printf 'LABEL org.opencontainers.image.ref.name="%s"\n' "${SOURCE_REF}"
+            } >> "${dockerfile}"
+          done < <(
+            awk '
+              /^images:/ { in_images = 1; next }
+              in_images && $1 == "dockerfile:" { print $2 }
+            ' tools/docker.yaml | sort -u
+          )
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
 
