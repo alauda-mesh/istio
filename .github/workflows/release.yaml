@@ -8,11 +8,15 @@ env:
   http_proxy: ${{ vars.http_proxy }}
   https_proxy: ${{ vars.https_proxy }}
   no_proxy: ${{ vars.no_proxy }}
+  IMAGE_REPOSITORY: build-harbor.alauda.cn/asm
 
 jobs:
   release:
     name: Release
     runs-on: [ self-hosted, linux, x64 ]
+    outputs:
+      image: ${{ steps.output_images.outputs.image }}
+      images: ${{ steps.output_images.outputs.images }}
 
     steps:
       - name: Checkout Source
@@ -67,7 +71,7 @@ jobs:
 
       - name: Build and Publish
         env:
-          HUB: build-harbor.alauda.cn/asm
+          HUB: ${{ env.IMAGE_REPOSITORY }}
           ISTIO_BASE_REGISTRY: ghcr.io/alauda-mesh
           BASE_VERSION: 2026-07-15T08-33-44
           TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
@@ -89,3 +93,49 @@ jobs:
 
           sudo rm -rf "${WORK_DIR}" && mkdir -p "${WORK_DIR}"
           ./alauda/release.sh
+
+      - name: "Output image: ${{ env.IMAGE_REPOSITORY }}/proxyv2:${{ env.TAG }}-distroless"
+        id: output_images
+        shell: bash
+        env:
+          IMAGE_TAG: ${{ env.TAG }}
+          PRIMARY_IMAGE: ${{ env.IMAGE_REPOSITORY }}/proxyv2:${{ env.TAG }}-distroless
+          DOCKER_OUTPUT_DIR: /tmp/istio-build/out/docker
+        run: |
+          mapfile -t archives < <(
+            find "${DOCKER_OUTPUT_DIR}" -maxdepth 1 -type f \
+              -name '*.tar.gz' ! -name '*-arm64.tar.gz' -print | sort
+          )
+          if (( ${#archives[@]} == 0 )); then
+            echo "No built images found in ${DOCKER_OUTPUT_DIR}" >&2
+            exit 1
+          fi
+
+          images=()
+          for archive in "${archives[@]}"; do
+            image_name=$(basename "${archive}" .tar.gz)
+            image_tag=${IMAGE_TAG}
+            case "${image_name}" in
+              *-debug)
+                image_name=${image_name%-debug}
+                image_tag=${IMAGE_TAG}-debug
+                ;;
+              *-distroless)
+                image_name=${image_name%-distroless}
+                image_tag=${IMAGE_TAG}-distroless
+                ;;
+            esac
+            image="${IMAGE_REPOSITORY}/${image_name}:${image_tag}"
+            images+=("${image}")
+            echo "BUILD_IMAGE=${image}"
+          done
+
+          printf -v images_json '"%s",' "${images[@]}"
+          images_json="[${images_json%,}]"
+          echo "image=${PRIMARY_IMAGE}" >> "${GITHUB_OUTPUT}"
+          echo "images=${images_json}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "### Build images"
+            echo
+            printf -- '- `%s`\n' "${images[@]}"
+          } >> "${GITHUB_STEP_SUMMARY}"
