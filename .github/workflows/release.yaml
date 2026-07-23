@@ -16,20 +16,20 @@ jobs:
 
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install GH CLI
         uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
 
       - name: Login Harbor
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: build-harbor.alauda.cn
           username: ${{ secrets.HARBOR_USERNAME }}
           password: ${{ secrets.HARBOR_PASSWORD }}
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -37,20 +37,20 @@ jobs:
 
       - name: Git describe
         id: ghd
-        uses: proudust/gh-describe@v2
+        uses: proudust/gh-describe@v3
 
       - name: Setup Image Tag
         run: |
           echo "TAG=${{ steps.ghd.outputs.tag }}" >> $GITHUB_ENV
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.24"
           cache: false
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           cache-image: false
 
