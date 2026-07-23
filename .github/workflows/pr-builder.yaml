@@ -8,11 +8,17 @@ env:
   http_proxy: ${{ vars.http_proxy }}
   https_proxy: ${{ vars.https_proxy }}
   no_proxy: ${{ vars.no_proxy }}
+  IMAGE_REPOSITORY: build-harbor.alauda.cn/asm
+  DOCKER_BUILD_VARIANTS: distroless
+  DOCKER_TARGETS: "install-cni istioctl pilot proxyv2 ztunnel"
 
 jobs:
   build:
     name: Build
     runs-on: [ self-hosted, linux, x64 ]
+    outputs:
+      image: ${{ steps.output_images.outputs.image }}
+      images: ${{ steps.output_images.outputs.images }}
 
     steps:
       - name: Checkout Source
@@ -67,17 +73,39 @@ jobs:
 
       - name: Build and Push
         env:
-          HUB: build-harbor.alauda.cn/asm
+          HUB: ${{ env.IMAGE_REPOSITORY }}
           ISTIO_BASE_REGISTRY: ghcr.io/alauda-mesh
           BASE_VERSION: 2026-07-15T08-33-44
           TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
           IMAGE_VERSION: release-1.28-4d8a6668b6d46b3becc35f9b24467f841bbb020a
-          DOCKER_BUILD_VARIANTS: distroless
           DOCKER_ARCHITECTURES: linux/amd64,linux/arm64
-          DOCKER_TARGETS: "install-cni istioctl pilot proxyv2 ztunnel"
           # For report_build_info.sh
           IGNORE_DIRTY_TREE: "1"
           GIT_DESCRIBE_TAG: ${{ env.TAG }}
           EXTRA_RELEASE_LDFLAGS: ${{ vars.EXTRA_RELEASE_LDFLAGS }}
         run: |
           make docker.push
+
+      - name: "Output image: ${{ env.IMAGE_REPOSITORY }}/proxyv2:${{ env.TAG }}-distroless"
+        id: output_images
+        shell: bash
+        env:
+          IMAGE_TAG: ${{ env.TAG }}
+          PRIMARY_IMAGE: ${{ env.IMAGE_REPOSITORY }}/proxyv2:${{ env.TAG }}-distroless
+        run: |
+          images=()
+          for image_name in ${DOCKER_TARGETS}; do
+            image="${IMAGE_REPOSITORY}/${image_name}:${IMAGE_TAG}-distroless"
+            images+=("${image}")
+            echo "BUILD_IMAGE=${image}"
+          done
+
+          printf -v images_json '"%s",' "${images[@]}"
+          images_json="[${images_json%,}]"
+          echo "image=${PRIMARY_IMAGE}" >> "${GITHUB_OUTPUT}"
+          echo "images=${images_json}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "### Build images"
+            echo
+            printf -- '- `%s`\n' "${images[@]}"
+          } >> "${GITHUB_STEP_SUMMARY}"
