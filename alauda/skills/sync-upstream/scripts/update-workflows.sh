@@ -87,14 +87,20 @@ main() {
       fi
     done
 
-    # ---------- release.yaml go-version 保持 "1.24" ----------
-    if grep -qE 'go-version: "1\.24"' "$REL_YAML"; then
-      ok "$REL_YAML go-version 已是 \"1.24\""
+    # ---------- release.yaml setup-go 跟随 go.mod ----------
+    # release-builder 以 BUILD_WITH_CONTAINER=0 在 runner 上直接跑 make（非 build-tools 容器），
+    # runner Go 必须满足 istio go.mod 的最低要求，且 runner 带 GOTOOLCHAIN=local 不会自动下载
+    # 新工具链（1.30 首战：固定 go-version "1.24" 遇 go.mod >=1.25.9，release 流水线直接失败）。
+    # 用 go-version-file 让 setup-go 始终跟随当前分支 go.mod，大版本升级无需人工调整。
+    if grep -qF 'go-version-file: go.mod' "$REL_YAML"; then
+      ok "$REL_YAML setup-go 已使用 go-version-file: go.mod"
     elif grep -qE 'go-version: "[0-9.]+"' "$REL_YAML"; then
-      sed -i -E 's|go-version: "[0-9.]+"|go-version: "1.24"|' "$REL_YAML"
-      ok "$REL_YAML go-version 重置为 \"1.24\""
+      sed -i -E 's|go-version: "[0-9.]+"|go-version-file: go.mod|' "$REL_YAML"
+      grep -qF 'go-version-file: go.mod' "$REL_YAML" \
+        && ok "$REL_YAML setup-go: 固定 go-version 改为 go-version-file: go.mod" \
+        || fail "$REL_YAML go-version 替换未生效"
     else
-      fail "$REL_YAML 中未找到 go-version 行"
+      fail "$REL_YAML 未找到 setup-go 的 go-version 配置（期望改为 go-version-file: go.mod）"
     fi
 
     # ---------- alauda/release.sh 的 tools 依赖分支 ----------

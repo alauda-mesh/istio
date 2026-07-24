@@ -87,7 +87,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.24"
+          go-version-file: go.mod
           cache: false
 
       - name: Set up QEMU
@@ -111,7 +111,7 @@ jobs:
           HUB: ${{ env.IMAGE_REPOSITORY }}
           ISTIO_BASE_REGISTRY: ghcr.io/alauda-mesh
           BASE_VERSION: 2026-07-15T08-33-44
-          TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
+          TOOLS_REGISTRY_PROVIDER: registry.istio.io
           IMAGE_VERSION: release-1.30-ad8991a47cf3c61799caa5569b9458d95eb612f2
           # 关闭主模块 VCS 版本嵌入，消除 istio.io/istio 伪版本导致的 Trivy 误报（CVE-2021-39156 等）
           GOBUILDFLAGS: "-buildvcs=false"
