@@ -88,7 +88,7 @@ function may_copy_into_arch_named_sub_dir() {
     dst+="/${arch}/"
   fi
   mkdir -p "${dst}"
-  cp -rp "${FILE}" "${dst}"
+  cp -rfp "${FILE}" "${dst}"
 
   # Based on type, explicit set permissions. These may differ on host machine due to umask, so always override.
   out="${dst}/$(basename "${FILE}")"
