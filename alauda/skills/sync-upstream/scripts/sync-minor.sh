@@ -18,6 +18,7 @@ main() {
 
   repo_root
   clean_tree_or_die
+  ensure_push_credentials
   git ls-remote --exit-code --heads origin "$TARGET_BRANCH" >/dev/null \
     || die "origin 不存在分支 $TARGET_BRANCH；若这是新大版本，请改用 sync-major.sh"
 

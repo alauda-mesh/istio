@@ -35,6 +35,7 @@ main() {
 
   repo_root
   clean_tree_or_die
+  ensure_push_credentials
   git ls-remote --exit-code --heads origin "$TARGET_BRANCH" >/dev/null 2>&1 \
     && die "origin 已存在分支 $TARGET_BRANCH；若是小版本升级请改用 sync-minor.sh"
   git rev-parse --verify --quiet "$TARGET_BRANCH" >/dev/null \
@@ -84,6 +85,10 @@ main() {
   git checkout -b "$BUILD_BRANCH"
   info "从 origin/$PREV_MAJOR_BRANCH 恢复 .github/workflows 与 alauda/ ..."
   git checkout "$PREV_SHA" -- .github/workflows alauda
+  # .claude/skills/sync-upstream 是指向 alauda/skills 的 symlink（本 skill 的 Claude Code 接入点），一并恢复
+  if git cat-file -e "$PREV_SHA:.claude" 2>/dev/null; then
+    git checkout "$PREV_SHA" -- .claude
+  fi
 
   # ---------- 生成构建配置参考 diff 并尝试自动套用 ----------
   # 参考 diff = 上一个大版本相对其上游基线对 BUILD_FILES 的定制；同时输出完整定制
@@ -122,7 +127,7 @@ main() {
   echo "新大版本分支: $TARGET_BRANCH（= 上游 $NEW_TAG，已 push）"
   echo "构建分支: $BUILD_BRANCH"
   echo "定制来源: origin/$PREV_MAJOR_BRANCH @ ${PREV_SHA:0:10}（其上游基线: $PREV_BASE_TAG）"
-  echo "已恢复: .github/workflows/ alauda/"
+  echo "已恢复: .github/workflows/ alauda/ .claude"
   echo "构建配置参考 diff: $STATE_DIR_REL/build-config.diff"
   echo "上一版完整定制清单: $STATE_DIR_REL/prev-custom.stat（供核对遗漏）"
   if [[ "$APPLY_RESULT" == APPLY_CONFLICT ]]; then

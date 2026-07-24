@@ -8,7 +8,7 @@ disable-model-invocation: true
 # 同步上游代码（istio/istio → alauda-mesh/istio）
 
 把 https://github.com/istio/istio 的指定 tag 同步到本仓库的目标分支。
-下文的 `$SKILL_DIR` 指本 skill 的根目录（即调用时提示的 Base directory，本仓库内为 `alauda/skills/sync-upstream`）。
+下文的 `$SKILL_DIR` 指本 skill 的根目录（即调用时提示的 Base directory）。本仓库内真身为 `alauda/skills/sync-upstream`，`.claude/skills/sync-upstream` 是指向它的 symlink（Claude Code 接入点），调用时提示的路径可能是后者，两者等价。
 
 ## 参数与模式判定
 
@@ -19,8 +19,10 @@ disable-model-invocation: true
 
 模式由目标分支是否已存在决定，脚本会强校验，你只需选对入口并在开跑前向用户播报判定结果：
 
-- `git ls-remote --heads origin <目标分支>` **存在** → **小版本同步**（tag 的大版本必须与分支一致，如 `1.28.7` → `istio-1.28`）
-- **不存在** → **大版本同步**（分支名必须是 `istio-<tag 大版本>`，如 `1.30.0` → `istio-1.30`）
+- `git ls-remote --exit-code --heads origin <目标分支>` 退出码 0（**存在**）→ **小版本同步**（tag 的大版本必须与分支一致，如 `1.28.7` → `istio-1.28`）
+- 退出码非 0（**不存在**）→ **大版本同步**（分支名必须是 `istio-<tag 大版本>`，如 `1.30.0` → `istio-1.30`）
+
+注意必须带 `--exit-code` 或检查输出是否为空：`git ls-remote --heads` 对不存在的分支同样退出 0。
 
 ## 背景知识
 
@@ -37,6 +39,7 @@ disable-model-invocation: true
 - 分支模型：`istio-1.XX` 大版本分支始终指向该大版本的**最新**小版本，最新大版本分支同时是 GitHub 默认分支；升级小版本前的旧状态留档为 `istio-1.XX.Y` 分支；**只维护最新两个大版本**。
 - 基础镜像来自 alauda-mesh/istio-base-images，其 cve-check 流水线按 `DEFAULT_ISTIO_BRANCHES` 巡检各分支并构建基础镜像；本仓库 workflows 里的 `BASE_VERSION` 由 bot 自动更新，**同步时不要手动改**。
 - 脚本间通过 `out/sync-upstream/state.env` 传递状态（`out/` 已在 gitignore 中）。
+- 入口脚本会在改动工作区之前探测 github.com 推送凭据（devcontainer 的 credential helper/askpass 可能随宿主 IDE 会话失效，而 gh 认证仍正常）；探测失败时按报错提示执行 `gh auth setup-git` 后重试即可。
 - 全程禁止 `git commit --amend`，一律创建新 commit。升级 PR 建立之前不要 push 同步分支。两个例外（脚本内置）：大版本的 `istio-1.XX` 分支创建后立即 push（内容与上游 tag 完全一致）；小版本的历史分支 push 的是远端已有的旧提交。
 
 ## 小版本同步（如 1.28.6 → 1.28.7）
@@ -105,13 +108,13 @@ bash "$SKILL_DIR/scripts/update-base-images.sh"
 bash "$SKILL_DIR/scripts/sync-major.sh" <上游tag> <目标分支>
 ```
 
-脚本会自动：基于上游 tag 创建 `istio-1.XX` 分支并 push、用 gh 设为 GitHub 默认分支 → 创建 `chore/alauda-1.XX-build` 构建分支 → 从上一个大版本分支恢复 `.github/workflows/` 与 `alauda/` → 生成上一版对 6 个构建文件的定制 diff（`out/sync-upstream/build-config.diff`）并 `git apply --3way` 自动套用。按结果处理：
+脚本会自动：基于上游 tag 创建 `istio-1.XX` 分支并 push、用 gh 设为 GitHub 默认分支 → 创建 `chore/alauda-1.XX-build` 构建分支 → 从上一个大版本分支恢复 `.github/workflows/`、`alauda/` 与 `.claude`（skill 接入 symlink）→ 生成上一版对 6 个构建文件的定制 diff（`out/sync-upstream/build-config.diff`）并 `git apply --3way` 自动套用。按结果处理：
 
 - **PREPARED（0）**：diff 干净套用，继续步骤 2。
 - **APPLY_CONFLICT（2）**：上游重构导致三方合并冲突。对照「背景知识」里每个文件的定制意图，把等价改动改写到新版本代码上（不是机械保留旧代码），解决后 `git add`，继续步骤 2。
-- **其他失败（1）**：把报错原样告知用户。若脚本在 checkout 之后中断，工作区里 skill 可能暂时消失：改用快照 `out/sync-upstream/skill-snapshot/scripts/` 继续执行，或先 `git checkout origin/<上一大版本分支> -- alauda` 找回。
+- **其他失败（1）**：把报错原样告知用户。若脚本在 checkout 之后中断，工作区里 skill 可能暂时消失：改用快照 `out/sync-upstream/skill-snapshot/scripts/` 继续执行，或先 `git checkout origin/<上一大版本分支> -- alauda` 找回。修复原因后如需整体重跑：先回到上一大版本分支并删除半成品目标分支（`git checkout <上一大版本分支> && git branch -D <目标分支>`；仅当目标分支尚未成功 push 且与上游 tag 指向完全一致时才可删，删前用 `git rev-parse` 核对），再重新执行本脚本。
 
-然后核对遗漏：Read `out/sync-upstream/prev-custom.stat`（上一版的完整定制清单），逐个文件归类——workflows 与 alauda/（已恢复）、6 个构建文件（已套用）、samples（步骤 4 cherry-pick）、releasenotes/tests/依赖 pin 等（通常是旧版 CVE 修复或上游 cherry-pick 的残留，新版本已包含或不适用，**不迁移**）。清单之外拿不准的文件停下来向用户提问；全部归类结果写进最终汇报。
+然后核对遗漏：Read `out/sync-upstream/prev-custom.stat`（上一版的完整定制清单），逐个文件归类——workflows、alauda/ 与 .claude symlink（已恢复）、6 个构建文件（已套用）、samples（步骤 4 cherry-pick）、releasenotes/tests/依赖 pin 等（通常是旧版 CVE 修复或上游 cherry-pick 的残留，新版本已包含或不适用，**不迁移**）。判定「上游已包含」时要落到证据（对比目标 tag 的文件内容或搜对应测试/函数是否存在），不要只凭提交信息推断。清单之外拿不准的文件停下来向用户提问；全部归类结果写进最终汇报。
 
 ### 步骤 2：更新流水线配置
 
