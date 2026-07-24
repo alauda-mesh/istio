@@ -102,7 +102,12 @@ jobs:
           ISTIO_BASE_REGISTRY: ghcr.io/alauda-mesh
           BASE_VERSION: 2026-07-15T08-33-44
           TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
-          IMAGE_VERSION: release-1.28-4d8a6668b6d46b3becc35f9b24467f841bbb020a
+          # 升级 build-tools 至上游 release-1.28 最新（Go 1.25.10）
+          IMAGE_VERSION: release-1.28-879cab1fff4bf7578feb9973cac1e413b6e16147
+          # 覆盖镜像内 GOTOOLCHAIN=local，用含 CVE-2026-42505 修复的 Go 1.25.12 编译
+          GOTOOLCHAIN: go1.25.12
+          # 关闭主模块 VCS 版本嵌入，消除 istio.io/istio 伪版本导致的 Trivy 误报（CVE-2021-39156 等）
+          GOBUILDFLAGS: "-buildvcs=false"
           DOCKER_ARCHITECTURES: linux/amd64,linux/arm64
           # For report_build_info.sh
           IGNORE_DIRTY_TREE: "1"
