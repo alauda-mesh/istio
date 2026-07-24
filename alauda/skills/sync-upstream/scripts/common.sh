@@ -42,6 +42,16 @@ clean_tree_or_die() {
   git diff --quiet && git diff --cached --quiet || die "工作区不干净，请先提交或 stash"
 }
 
+# push 前探测 github.com 凭据可用。devcontainer 的 credential helper/askpass 常随宿主 IDE
+# 会话失效（devpod agent 死端口、VS Code askpass 死 socket），若等到 checkout 之后 push 才
+# 失败，现场恢复成本高，所以在入口脚本改动工作区之前先探测。仅覆盖 https+github 场景。
+ensure_push_credentials() {
+  git remote get-url origin 2>/dev/null | grep -q '^https://github\.com/' || return 0
+  printf 'protocol=https\nhost=github.com\n\n' | git credential fill >/dev/null 2>&1 \
+    || die "无法获取 github.com 推送凭据（credential helper/askpass 可能已失效）。\
+若 gh 已认证（gh auth status 确认），请先执行: gh auth setup-git 把 gh 注册为凭据 helper，再重试"
+}
+
 # 确保 upstream remote 存在并 fetch（含 tags）
 ensure_upstream() {
   if ! git remote get-url upstream >/dev/null 2>&1; then
