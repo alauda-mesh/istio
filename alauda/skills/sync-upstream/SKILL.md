@@ -122,7 +122,7 @@ bash "$SKILL_DIR/scripts/sync-major.sh" <上游tag> <目标分支>
 bash "$SKILL_DIR/scripts/update-workflows.sh"
 ```
 
-major 模式额外完成：pr-builder 的 `branches` 过滤改为 `istio-1.XX*`、删除 GOTOOLCHAIN（历史 CVE pin 不带入新大版本）、release.yaml 的 go-version 保持 "1.24"、alauda/release.sh 的 tools 依赖分支改为 `release-1.XX`。输出语义与小版本步骤 2 相同（BASE_VERSION 保持继承值，bot 会自动更新）。
+major 模式额外完成：pr-builder 的 `branches` 过滤改为 `istio-1.XX*`、删除 GOTOOLCHAIN（历史 CVE pin 不带入新大版本）、release.yaml 的 setup-go 确保为 `go-version-file: go.mod`（release-builder 以 BUILD_WITH_CONTAINER=0 在 runner 裸跑 make，runner Go 必须满足新版 go.mod 最低要求；1.30 首战固定 go-version "1.24" 曾致 release 流水线在 `make docker.save` 直接失败）、alauda/release.sh 的 tools 依赖分支改为 `release-1.XX`。输出语义与小版本步骤 2 相同（BASE_VERSION 保持继承值，bot 会自动更新）。
 
 ### 步骤 3：提交构建定制
 
