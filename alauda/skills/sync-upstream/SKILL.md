@@ -108,7 +108,7 @@ bash "$SKILL_DIR/scripts/update-base-images.sh"
 bash "$SKILL_DIR/scripts/sync-major.sh" <上游tag> <目标分支>
 ```
 
-脚本会自动：基于上游 tag 创建 `istio-1.XX` 分支并 push、用 gh 设为 GitHub 默认分支 → 创建 `chore/alauda-1.XX-build` 构建分支 → 从上一个大版本分支恢复 `.github/workflows/`、`alauda/` 与 `.claude`（skill 接入 symlink）→ 生成上一版对 6 个构建文件的定制 diff（`out/sync-upstream/build-config.diff`）并 `git apply --3way` 自动套用。按结果处理：
+脚本会自动：基于上游 tag 创建 `istio-1.XX` 分支，将分支与上游 tag 原子 push（首个构建 PR 的 `gh-describe` 需要从 fork 查询该 tag）、用 gh 设为 GitHub 默认分支 → 创建 `chore/alauda-1.XX-build` 构建分支 → 从上一个大版本分支恢复 `.github/workflows/`、`alauda/` 与 `.claude`（skill 接入 symlink）→ 生成上一版对 6 个构建文件的定制 diff（`out/sync-upstream/build-config.diff`）并 `git apply --3way` 自动套用。按结果处理：
 
 - **PREPARED（0）**：diff 干净套用，继续步骤 2。
 - **APPLY_CONFLICT（2）**：上游重构导致三方合并冲突。对照「背景知识」里每个文件的定制意图，把等价改动改写到新版本代码上（不是机械保留旧代码），解决后 `git add`，继续步骤 2。
@@ -140,7 +140,7 @@ PR 描述写进临时文件（scratchpad 下）：定制迁移清单（恢复/�
 bash "$SKILL_DIR/scripts/create-pr.sh" <PR正文文件>
 ```
 
-注意：新大版本的第一个 PR 流水线**可能失败**——istio-base-images 尚未为新版本构建基础镜像、`BASE_VERSION` 要等 bot 更新。这是预期内的，向用户说明即可，**不要试图修复流水线**。
+注意：新大版本的第一个 PR 流水线会先通过 fork 中镜像的上游 tag 生成镜像标签，之后仍**可能失败**——istio-base-images 尚未为新版本构建基础镜像、`BASE_VERSION` 要等 bot 更新。这是预期内的，向用户说明即可，**不要试图通过改用旧基础镜像来绕过**。
 
 ### 步骤 6：更新 istio-base-images 分支列表
 

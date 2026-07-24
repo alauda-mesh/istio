@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 大版本同步 步骤 1：
-#   基于上游 tag 创建新大版本分支 istio-1.XX 并 push、设为 GitHub 默认分支；
+#   基于上游 tag 创建新大版本分支 istio-1.XX，将分支和 tag 原子 push、设为 GitHub 默认分支；
 #   创建 chore/alauda-1.XX-build 构建分支；
 #   从上一个大版本分支恢复 .github/workflows 与 alauda/；
 #   生成"上一个大版本的构建配置定制 diff"并尝试 git apply --3way 自动套用。
@@ -65,10 +65,15 @@ main() {
   rm -rf "$SNAP" && mkdir -p "$SNAP"
   cp -r "$SKILL_DIR/." "$SNAP/"
 
-  # ---------- 新大版本分支（内容 = 上游 tag，原样 push）----------
+  # ---------- 新大版本分支（内容 = 上游 tag，分支与 tag 原子 push）----------
   info "基于上游 tag $NEW_TAG 创建分支 $TARGET_BRANCH ..."
   git checkout -b "$TARGET_BRANCH" "refs/tags/$NEW_TAG"
-  git push --set-upstream origin "$TARGET_BRANCH" || die "push $TARGET_BRANCH 失败"
+  # pr-builder 使用 gh-describe 从 fork 的 GitHub API 查询可达 tag。新大版本历史与
+  # 上一版 ASM release tag 已分叉，因此必须把本次上游 tag 一并镜像到 origin；
+  # 使用原子 push，避免只创建分支却没有 tag，导致首个构建 PR 无法生成镜像标签。
+  git push --atomic --set-upstream origin \
+    "$TARGET_BRANCH" "refs/tags/$NEW_TAG" \
+    || die "原子 push $TARGET_BRANCH 与 tag $NEW_TAG 失败"
   if origin_is_alauda; then
     if gh repo edit "$REPO" --default-branch "$TARGET_BRANCH" >/dev/null; then
       info "已将 GitHub 默认分支设为 $TARGET_BRANCH"
@@ -124,7 +129,7 @@ main() {
 
   echo
   echo "$APPLY_RESULT"
-  echo "新大版本分支: $TARGET_BRANCH（= 上游 $NEW_TAG，已 push）"
+  echo "新大版本分支: $TARGET_BRANCH（= 上游 $NEW_TAG，分支与 tag 已原子 push）"
   echo "构建分支: $BUILD_BRANCH"
   echo "定制来源: origin/$PREV_MAJOR_BRANCH @ ${PREV_SHA:0:10}（其上游基线: $PREV_BASE_TAG）"
   echo "已恢复: .github/workflows/ alauda/ .claude"
