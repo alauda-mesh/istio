@@ -2,7 +2,8 @@
 # 步骤：机械更新流水线配置（只改文件不 commit，便于 review 后统一提交）。
 #   两种模式都做: pr-builder.yaml / release.yaml 的 IMAGE_VERSION ← common/scripts/setup_env.sh 默认值
 #   major 模式额外: pr-builder 的 branches 过滤、删除 GOTOOLCHAIN（含其注释行）、
-#                  release.yaml 的 go-version 保持 "1.24"、alauda/release.sh 的 tools 分支
+#                  release.yaml setup-go 改用 go-version-file、alauda/release.sh 的 tools 分支、
+#                  NOTICE 提示核查 release-builder pin（BUILDER_SHA）对新大版本的兼容性
 # 退出码: 0=OK   1=前置条件失败   2=PATTERN_MISMATCH（列出 FAIL 项，需模型用 Edit 手动完成）
 
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
@@ -112,6 +113,15 @@ main() {
     else
       fail "alauda/release.sh 中未找到 release-1.X 分支配置"
     fi
+    # ---------- release-builder pin 兼容性（仅提示，无法在本仓库内自动校验）----------
+    # alauda/release.sh 以 BUILDER_SHA pin 死 alauda-mesh/release-builder 提交，新大版本上游
+    # 常有配套适配（1.30 首战：上游把 chart 默认 hub 改为 registry.istio.io/testing，旧 pin
+    # 的 helm.go hubs 替换列表没有它，release 流水线构建完成后 validation 报 hub incorrect）。
+    local builder_sha
+    builder_sha="$(sed -n 's/^BUILDER_SHA=\([0-9a-fA-F]*\).*/\1/p' alauda/release.sh | head -1)"
+    notice "人工核查 release-builder pin（BUILDER_SHA=${builder_sha:-未找到}）是否兼容 istio $MAJOR：\
+对照上游 istio/release-builder 的 release-$MAJOR 分支查 pkg/build 适配改动（尤其 helm.go 的 hubs 替换列表、charts 清单），\
+需要时 cherry-pick 到 alauda-mesh/release-builder 并更新 BUILDER_SHA。"
     notice "BASE_VERSION 保持从上一版继承的值即可：istio-base-images 构建出新版基础镜像后由 bot 自动更新。"
   else
     # 小版本：GOTOOLCHAIN pin 是否继续保留由用户判断（新 build-tools 的 Go 可能已追上）

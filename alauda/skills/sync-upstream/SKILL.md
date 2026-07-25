@@ -124,6 +124,8 @@ bash "$SKILL_DIR/scripts/update-workflows.sh"
 
 major 模式额外完成：pr-builder 的 `branches` 过滤改为 `istio-1.XX*`、删除 GOTOOLCHAIN（历史 CVE pin 不带入新大版本）、release.yaml 的 setup-go 确保为 `go-version-file: go.mod`（release-builder 以 BUILD_WITH_CONTAINER=0 在 runner 裸跑 make，runner Go 必须满足新版 go.mod 最低要求；1.30 首战固定 go-version "1.24" 曾致 release 流水线在 `make docker.save` 直接失败）、alauda/release.sh 的 tools 依赖分支改为 `release-1.XX`。输出语义与小版本步骤 2 相同（BASE_VERSION 保持继承值，bot 会自动更新）。
 
+major 模式另有一项脚本无法自动完成的人工核查（脚本会输出 NOTICE 提醒）：alauda/release.sh 里 pin 的 release-builder 提交（`BUILDER_SHA`，指向 alauda-mesh/release-builder fork）是否兼容新大版本——对照上游 istio/release-builder 的 `release-1.XX` 分支查 `pkg/build` 的适配改动（尤其 helm.go 的 hubs 替换列表与 charts 清单），有则 cherry-pick 到 fork 并更新 `BUILDER_SHA`。1.30 首战：上游把 chart/profile 默认 hub 从 `gcr.io/istio-testing` 改为 `registry.istio.io/testing`，旧 pin 的替换列表没有它，release 流水线构建完成后在 validation 阶段报 `hub incorrect: got registry.istio.io/testing`。
+
 ### 步骤 3：提交构建定制
 
 review `git diff` 后，把步骤 1～2 的全部修改提交为一个新 commit（如 `chore: istio 1.XX build with alauda infra`）。必须先提交再进入步骤 4：cherry-pick 需要干净的工作区。
