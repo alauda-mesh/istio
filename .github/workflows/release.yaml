@@ -115,6 +115,11 @@ jobs:
           IMAGE_VERSION: release-1.30-ad8991a47cf3c61799caa5569b9458d95eb612f2
           # 关闭主模块 VCS 版本嵌入，消除 istio.io/istio 伪版本导致的 Trivy 误报（CVE-2021-39156 等）
           GOBUILDFLAGS: "-buildvcs=false"
+          # CVE-2026-42505（crypto/tls ECH PSK 泄露）修于 Go 1.26.5/1.25.12；go.mod 下限 1.25.9
+          # 有漏洞，这里显式 pin（会覆盖 runner 的 GOTOOLCHAIN=local 与 setup-go 装的版本）。
+          # 选 1.26.5 而非 1.25.12：与 build-tools（ad8991a4）内置 Go 一致，且 1.25 线随
+          # Go 1.27 发布即停止安全维护
+          GOTOOLCHAIN: go1.26.5
           # For report_build_info.sh
           IGNORE_DIRTY_TREE: "1"
           GIT_DESCRIBE_TAG: ${{ env.TAG }}
