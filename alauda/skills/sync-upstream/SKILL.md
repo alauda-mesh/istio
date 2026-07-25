@@ -142,7 +142,7 @@ PR 描述写进临时文件（scratchpad 下）：定制迁移清单（恢复/�
 bash "$SKILL_DIR/scripts/create-pr.sh" <PR正文文件>
 ```
 
-注意：新大版本的第一个 PR 流水线会先通过 fork 中镜像的上游 tag 生成镜像标签，之后仍**可能失败**——istio-base-images 尚未为新版本构建基础镜像、`BASE_VERSION` 要等 bot 更新。这是预期内的，向用户说明即可，**不要试图通过改用旧基础镜像来绕过**。
+注意：新大版本的第一个 PR 流水线**预期可以成功**（镜像标签由 fork 中镜像的上游 tag 生成，步骤 1 已原子 push）。若流水线失败，不要当作预期现象忽略——分析失败原因并尝试修复。
 
 ### 步骤 6：更新 istio-base-images 分支列表
 
@@ -160,6 +160,6 @@ bash "$SKILL_DIR/scripts/update-base-images.sh"
 2. 冲突逐条说明（文件 → 冲突点 → 解决方式），无冲突则写明；大版本另附定制迁移归类结果；
 3. 流水线修改：IMAGE_VERSION 新旧值、GOTOOLCHAIN/注释等 NOTICE 事项的处理建议；
 4. 各 PR 链接（istio 升级 PR、istio-base-images PR）与历史分支/默认分支变更；
-5. 遗留事项（如大版本首次流水线预期失败、需用户定夺的 pin）。
+5. 遗留事项（如需用户定夺的 pin）。
 
 到此流程结束，等用户 review 与合并；不要自行 merge PR。
