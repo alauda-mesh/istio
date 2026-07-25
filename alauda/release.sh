@@ -14,7 +14,9 @@ S3_BUCKET=${S3_BUCKET:-istio-build/dev}
 export ISTIO_DOCKER_QEMU=true
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=5cdbd863f36634f8191bdb1084b5e4f69cfdc9bb
+# 1081067: hub 替换列表补上 registry.istio.io/{testing,release}（istio 1.30 起 chart 默认
+# hub 变更，旧列表匹配不上导致 release validation 失败），cherry-pick 自上游 7dd51d9
+BUILDER_SHA=10810679abde06d35b11a6b592f8e2c77e3320db
 
 TAG="${GIT_DESCRIBE_TAG}"
 VERSION="${TAG}"
