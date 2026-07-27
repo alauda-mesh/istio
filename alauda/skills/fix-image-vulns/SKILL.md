@@ -55,7 +55,7 @@ bash "$SKILL_DIR/scripts/scan-images.sh"                # Bash timeout 设 60000
 bash "$SKILL_DIR/scripts/create-fix-branch.sh" <目标分支>    # 输出 WORKTREE= / BRANCH=
 ```
 
-修复前先看 `out/fix-image-vulns/fix-records.md`（如存在）：已在其他分支验证过的同名包，直接用记录中的落位版本。
+修复前先看 `out/fix-image-vulns/fix-records.md`（如存在）：已在其他分支验证过的同名包，直接用记录中的落位版本。连带钉子（非 CVE 目标但编译/tidy 需要的包）也是配方的一部分，复用时把整套 spec 原样带上——同系列小版本分支通常能一次通过。
 
 **go.mod 依赖**（升级目标以 scan 输出的"修复目标"表为准；候选没有 v 前缀，`go get` 时要加上）：
 
@@ -63,9 +63,13 @@ bash "$SKILL_DIR/scripts/create-fix-branch.sh" <目标分支>    # 输出 WORKTR
 bash "$SKILL_DIR/scripts/gomod-bump.sh" <目标分支> <module@vX.Y.Z> [...]   # timeout 600000
 ```
 
+首个分支冷缓存时（go get 全量下载 + 首次编译新依赖图）常超过 Bash 600000 上限，直接 `run_in_background: true` 跑；后续分支缓存已热，几分钟内能完成。
+
 - 库之间有依赖约束，实际落位版本可能高于扫描给的修复候选，属正常，脚本会打印实际版本；
 - `go get` 报 `A@vX requires B@vY, not B@vZ`：把 B 的目标提到 vY 重跑（vY 更高，CVE 覆盖不受影响），`golang.org/x/*` 系列互相牵制时常见；
 - 同一发布系列的包（如 `go.opentelemetry.io/otel` 与 `otel/sdk`）版本要对齐，统一取其中最高者；
+- 升 otel 主系列时**必须连带升** `go.opentelemetry.io/otel/exporters/prometheus` 到配套 0.x 版（版本规律 = otel minor+22，如 otel 1.43 ↔ exporters/prometheus 0.65.0）。扫描不会报它（无 CVE），但不升会因连带升上来的 `prometheus/otlptranslator` v1.0.0 API 变更编译失败（症状：`labelNamer.Build ... in single-value context`）；
+- `go mod tidy` 报 `github.com/go-openapi/testify/v2/assert/yaml ... does not contain package`：swag 被 MVS 拖到 ≥0.25 后其测试依赖解析坑，钉 `github.com/go-openapi/testify/v2@v2.5.1` 与 `github.com/go-openapi/testify/enable/yaml/v2@v2.4.2` 即可（与上游 istio-1.30 钉法一致）。同类间接依赖崩时，优先参考更高版本上游分支（如 istio-1.30）go.mod 里的钉法，而不是自己试版本；
 - 构建失败时分析原因（版本冲突、新版本要求更高 go、API 变更），能明确解决就解决，拿不准就带着报错向用户提问，不要凭猜测大版本连锁升级；
 - 无修复版本的 CVE 升级修不了，记入最终汇报的"未修复项"。
 
