@@ -25,3 +25,17 @@ git cherry-pick 539b7ef386bbeab280603bb1bd2a676a5a7b1558
 ```
 
 机械步骤已脚本化（见 [skills/sync-upstream/scripts/](skills/sync-upstream/scripts/)），合并冲突解决与定制迁移核对由模型执行并在 PR 描述中逐条说明。skill 通过 `.claude/skills/sync-upstream` 软链接接入 Claude Code。
+
+## 漏洞修复
+
+镜像漏洞修复通过 Claude Code skill [`/fix-image-vulns`](skills/fix-image-vulns/SKILL.md) 完成（仅限显式调用，参数：一个或多个 Release Alauda Istio / Pull Request Builder 流水线 run，可混多个小版本）：
+
+```bash
+# 扫描各 run 构建的 install-cni/pilot/proxyv2/ztunnel 四个 -distroless 镜像，
+# 按目标分支逐个修复（go stdlib → 升 workflow 的 GOTOOLCHAIN；go.mod 依赖 → 升库版本，
+# 多小版本间复用修复记录）、建 PR 并监控流水线、回归扫描，最多 3 轮修复；
+# os 级与 ztunnel 镜像的漏洞只扫描报告、不修复
+/fix-image-vulns 30178633704 30063689478 30063691266
+```
+
+目标分支自动从 run 推断（Release run → release 的目标分支；PR run → PR 的 base 分支），推断不出时会与用户确认。机械步骤已脚本化（见 [skills/fix-image-vulns/scripts/](skills/fix-image-vulns/scripts/)），漏洞分析、升级版本决策与失败原因分析由模型执行。skill 通过 `.claude/skills/fix-image-vulns` 软链接接入 Claude Code。
