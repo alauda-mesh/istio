@@ -57,7 +57,7 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.67.5
 	github.com/prometheus/procfs v0.20.1
-	github.com/prometheus/prometheus v0.311.3
+	github.com/prometheus/prometheus v0.306.0
 	github.com/quic-go/quic-go v0.54.0
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spf13/cobra v1.9.1
@@ -96,16 +96,16 @@ require (
 	helm.sh/helm/v3 v3.18.6
 	istio.io/api v1.28.6-0.20260409143200-2af9c4a3d7d9
 	istio.io/client-go v1.28.6-0.20260409143900-aad2ddc68535
-	k8s.io/api v0.35.3
+	k8s.io/api v0.34.1
 	k8s.io/apiextensions-apiserver v0.34.1
-	k8s.io/apimachinery v0.35.3
+	k8s.io/apimachinery v0.34.1
 	k8s.io/apiserver v0.34.1
 	k8s.io/cli-runtime v0.33.3
-	k8s.io/client-go v0.35.3
+	k8s.io/client-go v0.34.1
 	k8s.io/component-helpers v0.33.3
-	k8s.io/klog/v2 v2.140.0
+	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.33.3
-	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
+	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
 	sigs.k8s.io/controller-runtime v0.22.1
 	sigs.k8s.io/gateway-api v1.4.0
 	sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250926182816-0a3bb2010751
@@ -237,3 +237,8 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
+
+// prometheus 钉在 3.5 LTS 修复线（修复 CVE-2026-42154/40179/42151/44903）：
+// gateway-api-inference-extension 强拉 v0.306.0(=3.6.0，处于漏洞区间)，
+// 而 v0.311.3 会连带拉 k8s.io v0.35（istiod values proto 尚未适配，启动即 panic）
+replace github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.305.3
