@@ -237,3 +237,16 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
+
+// k8s.io 三件套用 replace 强制钉回 v0.34.1（与上游 release-1.28 一致）：
+// prometheus v0.311.3（CVE-2026-42154/40179/42151/44903 在 trivy DB 中唯一认可的
+// 修复版本，3.5 LTS 的 v0.305.3 虽同样修复但 DB 未收录该分支、扫描仍报）会把
+// k8s.io 连带拉到 v0.35.3，而 k8s 1.35 默认构建移除了生成类型的 ProtoMessage()
+// 方法（gogo 移除过渡），istio 1.28 的 values proto 尚未解耦 k8s 类型（上游
+// istio#58632 仅进 1.30+），istiod 启动解析 values 即 panic；replace 不参与
+// MVS 传递，可在保留 prometheus v0.311.3 的同时把 k8s.io 压回兼容版本
+replace (
+	k8s.io/api => k8s.io/api v0.34.1
+	k8s.io/apimachinery => k8s.io/apimachinery v0.34.1
+	k8s.io/client-go => k8s.io/client-go v0.34.1
+)
