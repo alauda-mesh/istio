@@ -71,7 +71,10 @@ bash "$SKILL_DIR/scripts/gomod-bump.sh" <目标分支> <module@vX.Y.Z> [...]   #
 - 升 otel 主系列时**必须连带升** `go.opentelemetry.io/otel/exporters/prometheus` 到配套 0.x 版（版本规律 = otel minor+22，如 otel 1.43 ↔ exporters/prometheus 0.65.0）。扫描不会报它（无 CVE），但不升会因连带升上来的 `prometheus/otlptranslator` v1.0.0 API 变更编译失败（症状：`labelNamer.Build ... in single-value context`）；
 - `go mod tidy` 报 `github.com/go-openapi/testify/v2/assert/yaml ... does not contain package`：swag 被 MVS 拖到 ≥0.25 后其测试依赖解析坑，钉 `github.com/go-openapi/testify/v2@v2.5.1` 与 `github.com/go-openapi/testify/enable/yaml/v2@v2.4.2` 即可（与上游 istio-1.30 钉法一致）。同类间接依赖崩时，优先参考更高版本上游分支（如 istio-1.30）go.mod 里的钉法，而不是自己试版本；
 - 构建失败时分析原因（版本冲突、新版本要求更高 go、API 变更），能明确解决就解决，拿不准就带着报错向用户提问，不要凭猜测大版本连锁升级；
-- 无修复版本的 CVE 升级修不了，记入最终汇报的"未修复项"。
+- 无修复版本的 CVE 升级修不了，记入最终汇报的"未修复项"；
+- **tidy 后必须审查连带升级面**：`git diff go.mod` 检查 k8s.io/api、apimachinery、client-go 等基础库是否被连带拉升 minor 版本；k8s.io 系列一旦超过同分支上游 istio（`istio/istio@release-1.XX` 的 go.mod）的钉定版本必须回钉。教训（2026-07，1.28 系）：prometheus/prometheus v0.311.3 强拉 k8s.io v0.35.3，而 k8s 1.35 把生成类型的 `ProtoMessage()` 移入 opt-in 构建标签（gogo 移除过渡），istio 1.28 的 operator values proto 仍引用 k8s proto 类型，istiod 启动即 panic（`message *v1.Affinity is neither a v1 or v2 Message`），带毒版本 1.28.6-asm-r4 随流水线发布，线上升级事故；修复见 #40/#41/#42。istio 1.30+ 已解耦（upstream istio#58632），无此约束；
+- prometheus/prometheus 在 1.28 系分支必须用 **v0.311.3 + replace 钉 k8s.io 三件套 v0.34.1**（`replace k8s.io/{api,apimachinery,client-go} => v0.34.1`，replace 不参与 MVS 传递，可压住 prometheus 对 k8s v0.35 的强拉，钉定值与上游 release-1.28 一致）。不要试图用 v0.305.3（3.5 LTS）绕开：语义上它同样修复那批 CVE，但 trivy DB 对 Go module 只收录 0.311.3 一条修复线，线性版本比较下 LTS 仍被判 vulnerable，镜像扫描无法清零（2026-07-29 实测否决）；
+- 落位版本以扫描器给的修复候选为准，**勿基于 advisory 原文自行换用其他修复分支**（LTS/多分支修复线 Go 漏洞库常只收录主线）；确需偏离候选钉法时，推流水线前先本地 trivy 预扫（`trivy rootfs` 扫本地构建的二进制；本地构建时主模块 istio.io/istio 是伪版本，其自身的老 CVE 属误报可忽略，CI 镜像无此问题），别把试错留给回归轮——那要多烧一次 30～60 分钟流水线，还占 3 轮修复上限。
 
 **go stdlib**（对照 scan 输出的当前 GOTOOLCHAIN 与修复候选选定版本）：
 
@@ -80,6 +83,14 @@ bash "$SKILL_DIR/scripts/update-gotoolchain.sh" <目标分支> <go1.X.Y>
 ```
 
 按脚本 NOTICE 用 Edit 改写 GOTOOLCHAIN 附近的过时注释（写明本次升级对应的 CVE）。退出码 2 表示某文件没有 GOTOOLCHAIN 行，按脚本提示用 Edit 在 Build env 块补上。
+
+**运行时最小验证**（go.mod 有变更时，提交前在 worktree 内跑）：
+
+```bash
+go test ./operator/pkg/apis/ ./pkg/kube/inject/ -count=1   # 热缓存约几十秒
+```
+
+gomod-bump 编译通过只证明能编译，抓不住依赖引入的运行时崩溃；values proto 解析路径覆盖 istiod 启动初始化，1.28.6-asm-r4 的启动 panic 本可被它拦住。
 
 **提交**（在 worktree 内，两类修复各自独立 commit，禁止 amend）：
 
