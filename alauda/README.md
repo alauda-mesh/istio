@@ -7,6 +7,8 @@
 git cherry-pick b0ca4455d5620a21754fd3c6b7432b84aafec97b
 # feat: bookinfo samples add health check config
 git cherry-pick 539b7ef386bbeab280603bb1bd2a676a5a7b1558
+# feat: ambient reconcile host-level health check rules at runtime
+git cherry-pick c6c635e7c204883d3d7eba74dd3fb63f165a00fb
 ```
 
 ## 版本升级
