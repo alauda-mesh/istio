@@ -2,7 +2,7 @@ name: Pull Request Builder
 
 on:
   pull_request:
-    branches: [ "istio-1.28*" ]
+    branches: ["istio-1.28*"]
 
 env:
   http_proxy: ${{ vars.http_proxy }}
@@ -15,7 +15,7 @@ env:
 jobs:
   build:
     name: Build
-    runs-on: [ self-hosted, linux, x64 ]
+    runs-on: [self-hosted, linux, x64]
     outputs:
       image: ${{ steps.output_images.outputs.image }}
       images: ${{ steps.output_images.outputs.images }}
@@ -58,7 +58,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
       - name: Install GH CLI
-        uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
+        uses: dev-hanz-ops/install-gh-cli-action@v0.3.0
 
       - name: Login Harbor
         uses: docker/login-action@v4
@@ -104,8 +104,8 @@ jobs:
           TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
           # 升级 build-tools 至上游 release-1.28 最新（Go 1.25.10）
           IMAGE_VERSION: release-1.28-879cab1fff4bf7578feb9973cac1e413b6e16147
-          # 覆盖镜像内 GOTOOLCHAIN=local，用含 CVE-2026-42505 修复的 Go 1.25.12 编译
-          GOTOOLCHAIN: go1.25.12
+          # 覆盖镜像内 GOTOOLCHAIN=local
+          GOTOOLCHAIN: go1.26.6
           # 关闭主模块 VCS 版本嵌入，消除 istio.io/istio 伪版本导致的 Trivy 误报（CVE-2021-39156 等）
           GOBUILDFLAGS: "-buildvcs=false"
           DOCKER_ARCHITECTURES: linux/amd64,linux/arm64
