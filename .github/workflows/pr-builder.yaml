@@ -2,7 +2,7 @@ name: Pull Request Builder
 
 on:
   pull_request:
-    branches: [ "istio-1.30*" ]
+    branches: ["istio-1.30*"]
 
 env:
   http_proxy: ${{ vars.http_proxy }}
@@ -15,7 +15,7 @@ env:
 jobs:
   build:
     name: Build
-    runs-on: [ self-hosted, linux, x64 ]
+    runs-on: [self-hosted, linux, x64]
     outputs:
       image: ${{ steps.output_images.outputs.image }}
       images: ${{ steps.output_images.outputs.images }}
@@ -105,9 +105,9 @@ jobs:
           IMAGE_VERSION: release-1.30-ad8991a47cf3c61799caa5569b9458d95eb612f2
           # 关闭主模块 VCS 版本嵌入，消除 istio.io/istio 伪版本导致的 Trivy 误报（CVE-2021-39156 等）
           GOBUILDFLAGS: "-buildvcs=false"
-          # CVE-2026-42505 re-pin，与 release.yaml 同改（惯例）；build-tools（ad8991a4）内置
-          # Go 即 1.26.5，容器内命中本地工具链无需下载，同时锁住编译版本不随镜像漂移
-          GOTOOLCHAIN: go1.26.5
+          # re-pin，与 release.yaml 同改（惯例）；build-tools（ad8991a4）内置 Go，
+          # 容器内命中本地工具链无需下载，同时锁住编译版本不随镜像漂移
+          GOTOOLCHAIN: go1.26.6
           DOCKER_ARCHITECTURES: linux/amd64,linux/arm64
           # For report_build_info.sh
           IGNORE_DIRTY_TREE: "1"
