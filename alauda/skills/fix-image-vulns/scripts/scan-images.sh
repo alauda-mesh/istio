@@ -12,13 +12,25 @@
 #       + SUMMARY + RESULT: CLEAN|REPORT_ONLY|FIX_NEEDED（附 FIX_BRANCHES=）
 # 退出码: 0=扫描完成（无论结论） 1=失败
 # 注意: 服务端要拉镜像再扫，首扫可能几分钟，调用方把 Bash timeout 设为 600000。
-# 环境变量: SCAN_API（默认 http://192.168.25.100:8888）、MAX_ATTEMPTS=3、RETRY_DELAY=15、SCAN_TIMEOUT=240
+# 扫描服务: 主备两地址自动切换——先探测主服务（SCAN_API_PRIMARY，默认 http://192.168.141.42:8888），
+#           可达则主为首选、备（SCAN_API_BACKUP，默认 http://192.168.25.100:8888）作后援；
+#           主不可达则降级用备；均不可达直接失败。扫描阶段当前服务连续 MAX_ATTEMPTS 次失败即切换，
+#           切换后持久生效（后续镜像直接用新服务）。
+# 环境变量: SCAN_API_PRIMARY / SCAN_API_BACKUP、SCAN_API（显式指定单一服务，跳过主备探测与切换）、
+#           MAX_ATTEMPTS=3、RETRY_DELAY=15、SCAN_TIMEOUT=240
 
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 MAX_ATTEMPTS="${MAX_ATTEMPTS:-3}"
 RETRY_DELAY="${RETRY_DELAY:-15}"
 SCAN_TIMEOUT="${SCAN_TIMEOUT:-240}"
+
+# 服务是否可达：能返回任意 HTTP 状态码即算在线（连接被拒/超时时 curl 输出 000）
+probe_api() {
+  local code
+  code="$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 -m 10 "$1/" 2>/dev/null || true)"
+  [[ -n "$code" && "$code" != "000" ]]
+}
 
 main() {
   repo_root
@@ -29,30 +41,53 @@ main() {
   local IMG_TSV="$STATE_DIR/images-round${N}.tsv"
   [[ -s "$IMG_TSV" ]] || die "没有第 ${N} 轮镜像清单: $IMG_TSV（第 1 轮先执行 resolve-runs.sh；回归轮先执行 watch-prs.sh）"
 
+  # ---------- 选定扫描服务：优先主地址，不可达时切备用 ----------
+  local APIS=() API_IDX=0
+  if [[ -n "${SCAN_API:-}" ]]; then
+    APIS=("$SCAN_API")
+    info "使用显式指定的扫描服务: $SCAN_API"
+  elif probe_api "$SCAN_API_PRIMARY"; then
+    APIS=("$SCAN_API_PRIMARY" "$SCAN_API_BACKUP")
+    info "使用主扫描服务: $SCAN_API_PRIMARY（备用: $SCAN_API_BACKUP）"
+  elif probe_api "$SCAN_API_BACKUP"; then
+    APIS=("$SCAN_API_BACKUP")
+    warn "主扫描服务不可达（$SCAN_API_PRIMARY），切换到备用: $SCAN_API_BACKUP"
+  else
+    die "主备扫描服务均不可达: $SCAN_API_PRIMARY / $SCAN_API_BACKUP"
+  fi
+
   local SCAN_DIR="$STATE_DIR/scans/round${N}"
   mkdir -p "$SCAN_DIR"
   local TSV="$SCAN_DIR/vulns.tsv"
   : >"$TSV"
 
   # 同一（分支,镜像）可能来自多个 run，去重后扫描
-  local branch img short out resp encoded url i n rows
+  local branch img short out resp encoded api url i n rows
   while IFS=$'\t' read -r branch img; do
     short="$(img_repo "$img")"
     out="$SCAN_DIR/$(img_slug "$img").json"
 
     info "扫描 ${img} ..."
     encoded="$(jq -rn --arg v "$img" '$v|@uri')"
-    url="${SCAN_API}/image/vulnerability/custom?image_full_address=${encoded}&trivy_db_date=latest&severity=low&vulnerability_type=os%2Clibrary&version=v4.4.0"
+    # 当前服务连续 MAX_ATTEMPTS 次失败后换下一个服务；全部服务用尽才算失败
     resp=""
-    for i in $(seq 1 "$MAX_ATTEMPTS"); do
-      if resp="$(curl -sS --fail --max-time "$SCAN_TIMEOUT" -H 'accept: application/json' "$url")" \
-         && jq -e 'has("os") and has("lang")' <<<"$resp" >/dev/null 2>&1; then
-        break
+    while [[ -z "$resp" && "$API_IDX" -lt "${#APIS[@]}" ]]; do
+      api="${APIS[$API_IDX]}"
+      url="${api}/image/vulnerability/custom?image_full_address=${encoded}&trivy_db_date=latest&severity=low&vulnerability_type=os%2Clibrary&version=v4.4.0"
+      for i in $(seq 1 "$MAX_ATTEMPTS"); do
+        if resp="$(curl -sS --fail --max-time "$SCAN_TIMEOUT" -H 'accept: application/json' "$url")" \
+           && jq -e 'has("os") and has("lang")' <<<"$resp" >/dev/null 2>&1; then
+          break
+        fi
+        resp=""
+        [[ "$i" -lt "$MAX_ATTEMPTS" ]] && { warn "本次扫描失败，${RETRY_DELAY}s 后重试（$i/$MAX_ATTEMPTS，服务 $api）"; sleep "$RETRY_DELAY"; }
+      done
+      if [[ -z "$resp" ]]; then
+        API_IDX=$((API_IDX + 1))   # 切换后持久生效，后续镜像直接用新服务
+        [[ "$API_IDX" -lt "${#APIS[@]}" ]] && warn "服务 $api 连续 $MAX_ATTEMPTS 次失败，切换到 ${APIS[$API_IDX]}"
       fi
-      resp=""
-      [[ "$i" -lt "$MAX_ATTEMPTS" ]] && { warn "本次扫描失败，${RETRY_DELAY}s 后重试（$i/$MAX_ATTEMPTS）"; sleep "$RETRY_DELAY"; }
     done
-    [[ -n "$resp" ]] || die "扫描服务连续 $MAX_ATTEMPTS 次失败: $img（SCAN_API=$SCAN_API）"
+    [[ -n "$resp" ]] || die "所有扫描服务均连续 $MAX_ATTEMPTS 次失败: $img（已尝试: ${APIS[*]}）"
     printf '%s\n' "$resp" >"$out"
 
     # 提取为 TSV: 分支/镜像短名/分类/包/装机版本/修复候选(逗号分隔,去v前缀)/CVE/严重度

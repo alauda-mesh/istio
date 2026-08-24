@@ -11,7 +11,10 @@
 set -euo pipefail
 
 REPO="${FIX_REPO:-alauda-mesh/istio}"
-SCAN_API="${SCAN_API:-http://192.168.25.100:8888}"
+# 内网镜像扫描服务：主备两个地址（备用地址的服务容易故障），scan-images.sh 探测选用；
+# 显式设 SCAN_API 则只用该地址，跳过主备探测与切换
+SCAN_API_PRIMARY="${SCAN_API_PRIMARY:-http://192.168.141.42:8888}"
+SCAN_API_BACKUP="${SCAN_API_BACKUP:-http://192.168.25.100:8888}"
 # 扫描范围：流水线产物中只扫这四个镜像的 -distroless 变体（istioctl、debug 变体等不在范围）
 SCAN_REPOS="install-cni pilot proxyv2 ztunnel"
 # 修复范围：ztunnel（rust）只扫不修
