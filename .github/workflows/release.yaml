@@ -61,6 +61,8 @@ jobs:
 
       - name: Install GH CLI
         uses: dev-hanz-ops/install-gh-cli-action@v0.3.0
+        with:
+          gh-cli-version: "2.76.2"
 
       - name: Login Harbor
         uses: docker/login-action@v4
