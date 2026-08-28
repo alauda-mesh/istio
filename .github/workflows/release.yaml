@@ -114,6 +114,10 @@ jobs:
           ISTIO_BASE_REGISTRY: ghcr.io/alauda-mesh
           BASE_VERSION: 2026-07-15T08-33-44
           TOOLS_REGISTRY_PROVIDER: registry.istio.io
+          # 与 TOOLS_REGISTRY_PROVIDER 配套显式钉死：build-tools 在 registry.istio.io 下的
+          # 路径是 testing/build-tools，而 gcr.io 下是 istio-testing/build-tools；上游 1.30
+          # 把 setup_env.sh 的默认值从 istio-testing 改成了 testing，不显式写会随上游漂移
+          PROJECT_ID: testing
           IMAGE_VERSION: release-1.30-d868c62ea286fa9370c5202c29c25e755eaa71d6
           # 关闭主模块 VCS 版本嵌入，消除 istio.io/istio 伪版本导致的 Trivy 误报（CVE-2021-39156 等）
           GOBUILDFLAGS: "-buildvcs=false"
