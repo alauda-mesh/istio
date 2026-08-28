@@ -114,7 +114,7 @@ jobs:
           ISTIO_BASE_REGISTRY: ghcr.io/alauda-mesh
           BASE_VERSION: 2026-07-15T08-33-44
           TOOLS_REGISTRY_PROVIDER: registry.istio.io
-          IMAGE_VERSION: release-1.30-ad8991a47cf3c61799caa5569b9458d95eb612f2
+          IMAGE_VERSION: release-1.30-d868c62ea286fa9370c5202c29c25e755eaa71d6
           # 关闭主模块 VCS 版本嵌入，消除 istio.io/istio 伪版本导致的 Trivy 误报（CVE-2021-39156 等）
           GOBUILDFLAGS: "-buildvcs=false"
           # 显式 pin（会覆盖 runner 的 GOTOOLCHAIN=local 与 setup-go 装的版本）。
