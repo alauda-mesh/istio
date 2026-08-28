@@ -118,7 +118,7 @@ jobs:
           # 关闭主模块 VCS 版本嵌入，消除 istio.io/istio 伪版本导致的 Trivy 误报（CVE-2021-39156 等）
           GOBUILDFLAGS: "-buildvcs=false"
           # 显式 pin（会覆盖 runner 的 GOTOOLCHAIN=local 与 setup-go 装的版本）。
-          GOTOOLCHAIN: go1.26.6
+          GOTOOLCHAIN: go1.26.7
           # For report_build_info.sh
           IGNORE_DIRTY_TREE: "1"
           GIT_DESCRIBE_TAG: ${{ env.TAG }}

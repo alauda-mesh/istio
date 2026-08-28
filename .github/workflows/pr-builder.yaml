@@ -107,9 +107,9 @@ jobs:
           IMAGE_VERSION: release-1.30-d868c62ea286fa9370c5202c29c25e755eaa71d6
           # 关闭主模块 VCS 版本嵌入，消除 istio.io/istio 伪版本导致的 Trivy 误报（CVE-2021-39156 等）
           GOBUILDFLAGS: "-buildvcs=false"
-          # re-pin，与 release.yaml 同改（惯例）；build-tools（ad8991a4）内置 Go，
+          # 与 release.yaml 同改（惯例）；与 build-tools（d868c62e）内置 Go 版本一致，
           # 容器内命中本地工具链无需下载，同时锁住编译版本不随镜像漂移
-          GOTOOLCHAIN: go1.26.6
+          GOTOOLCHAIN: go1.26.7
           DOCKER_ARCHITECTURES: linux/amd64,linux/arm64
           # For report_build_info.sh
           IGNORE_DIRTY_TREE: "1"
