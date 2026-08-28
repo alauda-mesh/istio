@@ -38,6 +38,8 @@ disable-model-invocation: true
   4. samples 定制（tcp-echo、bookinfo），cherry-pick 清单维护在 `alauda/README.md` 的「Alaude Istio 源码改动历史」章节。
 - 分支模型：`istio-1.XX` 大版本分支始终指向该大版本的**最新**小版本，最新大版本分支同时是 GitHub 默认分支；升级小版本前的旧状态留档为 `istio-1.XX.Y` 分支；**只维护最新两个大版本**。
 - 基础镜像来自 alauda-mesh/istio-base-images，其 cve-check 流水线按 `DEFAULT_ISTIO_BRANCHES` 巡检各分支并构建基础镜像；本仓库 workflows 里的 `BASE_VERSION` 由 bot 自动更新，**同步时不要手动改**。
+- build-tools 镜像路径由 workflows 的 `TOOLS_REGISTRY_PROVIDER` + `PROJECT_ID` + `IMAGE_VERSION` 拼成（见 `common/scripts/setup_env.sh`），两者都已在 workflows 里显式钉死，**不要删掉改回默认值**：上游 1.30 把默认值从 `gcr.io`+`istio-testing` 换成了 `registry.istio.io`+`testing`，只改其一会拼出不存在的路径。
+- **`IMAGE_VERSION` 推进后，self-hosted runner 会首次真正联网拉取 build-tools（约 2GB、十几分钟）**，此前一直命中本地缓存的网络问题会在这一刻暴露。拉镜像的是 runner 上的 dockerd，**它不读 job 里的 `http_proxy`**，必须自己配代理（`/etc/systemd/system/docker.service.d/http-proxy.conf`，2026-08-28 已配置）。若 PR 流水线报 `docker: error pulling image configuration ... i/o timeout`，先查 `systemctl show docker --property=Environment`，而不是怀疑同步内容。
 - 脚本间通过 `out/sync-upstream/state.env` 传递状态（`out/` 已在 gitignore 中）。
 - 入口脚本会在改动工作区之前探测 github.com 推送凭据（devcontainer 的 credential helper/askpass 可能随宿主 IDE 会话失效，而 gh 认证仍正常）；探测失败时按报错提示执行 `gh auth setup-git` 后重试即可。
 - 全程禁止 `git commit --amend`，一律创建新 commit。升级 PR 建立之前不要 push 同步分支。两个例外（脚本内置）：大版本的 `istio-1.XX` 分支创建后立即 push（内容与上游 tag 完全一致）；小版本的历史分支 push 的是远端已有的旧提交。
@@ -61,6 +63,10 @@ bash "$SKILL_DIR/scripts/sync-minor.sh" <上游tag> <目标分支>
   - 解决完 `git add <文件>` 并 `git commit --no-edit` 完成合并（禁止 amend）。
 - **其他失败（1）**：前置条件问题，把报错原样告知用户并询问如何处理，不要擅自 stash 或删分支。
 
+`go.mod` 冲突（最常见：我方 CVE pin 的依赖被上游升到更高版本）要连带处理 `go.sum`：go.sum 几乎总能"自动合并"成双方并集，于是留下被取代版本的残留条目。解决完 go.mod 后先对比 `diff <(git show <tag>:go.mod) go.mod`——若已与上游完全一致（我方 pin 全被上游取代），直接 `git checkout <tag> -- go.sum` 对齐；若仍保留了我方 pin，则只删除被取代版本对应的 go.sum 行。1.30.4 实测：仅 go.mod 一处冲突（grpc/protobuf/genproto），取上游后 go.sum 残留 8 行旧版本。
+
+合并成功后核验 6 个构建文件的定制仍然在位（上游改动与定制相邻时会被 git 自动合并，不报冲突但可能失效）：`git diff --name-only <tag>..HEAD` 得到的差异清单应覆盖 workflows、alauda/、.claude、samples 与这 6 个文件；某个构建文件不在清单里，要确认是上游已吸收该定制（逐字比对文件内容）而不是定制丢失。1.30.4 实测：`istioctl/docker/Dockerfile.istioctl` 已被上游吸收，与上游逐字一致，属正常。
+
 ### 步骤 2：更新流水线 IMAGE_VERSION
 
 ```bash
@@ -69,10 +75,18 @@ bash "$SKILL_DIR/scripts/update-workflows.sh"
 
 脚本把两条流水线的 `IMAGE_VERSION` 更新为合并后 `common/scripts/setup_env.sh` 的默认值（上游 tag 会推进 build-tools 版本，流水线必须跟上，否则编译工具链与上游脱节）。保护逻辑：若现值是人为 pin（如 CVE 升级 build-tools）而本次上游默认值没有推进，脚本会保持 pin 不回退。输出语义：
 
-- **OK**：已完成项；**NOTICE**：需要你审阅的信息——人为 pin 的保留/覆盖情况、IMAGE_VERSION 附近的过时注释（用 Edit 清理或改写）、GOTOOLCHAIN pin 是否仍需保留，这些都要写进汇报由用户定夺；
+- **OK**：已完成项；**NOTICE**：需要你审阅的信息——人为 pin 的保留/覆盖情况、引用了旧 build-tools SHA 的过时注释（用 Edit 改写）、GOTOOLCHAIN pin 是否仍需保留，这些都要写进汇报由用户定夺；
 - **PATTERN_MISMATCH（2）**：列出的 FAIL 项用 Edit 按期望值手动完成，其余不要重复改。
 
-review `git diff` 后把本步骤修改提交为一个新 commit（如 `chore: update IMAGE_VERSION to <新值>`）。
+GOTOOLCHAIN pin 的评估判据是**新 build-tools 镜像内置的 Go 版本**（脚本会给出查询命令）：
+
+```bash
+gh api repos/istio/tools/contents/docker/build-tools/Dockerfile?ref=<新IMAGE_VERSION的SHA> --jq .content | base64 -d | grep GOLANG_IMAGE
+```
+
+pin 低于内置版本说明上游随小版本升了 Go，应把 pin 抬到内置版本（否则等于故意用更老的 Go 编译）；等于内置版本时容器内命中本地工具链无需下载，最理想；高于内置版本（CVE 修复场景）会在容器内下载工具链，可接受。1.30.4 实测：build-tools `d868c62e` 基于 `golang:1.26.7-bookworm`，故把两条流水线的 pin 从 `go1.26.6` 抬到 `go1.26.7`；两条流水线的 GOTOOLCHAIN 一律同改（惯例）。
+
+review `git diff` 后把本步骤修改提交为一个新 commit（如 `chore: update IMAGE_VERSION to <新值>`）；若同时动了 GOTOOLCHAIN，按仓库惯例拆成独立提交（如 `chore: upgrade go build version to <版本>`）。
 
 ### 步骤 3：创建升级 PR
 
@@ -91,6 +105,8 @@ bash "$SKILL_DIR/scripts/create-history-branch.sh"
 ```
 
 把合并前的 `origin/istio-1.XX` 状态 push 为 `istio-<旧版本>` 分支（如 `istio-1.28.6`），使旧小版本在大版本分支前进后仍可追溯、可继续被 CVE 巡检。**EXISTS** 时不做修改（分支头与合并前状态不同说明带 hotfix，照实汇报）。
+
+留档的意义是「已发版的下游产品（mesh vX.Y）仍指向该小版本」。若该大版本对应的 mesh 版本**尚未发版**，旧小版本没有任何在维护的发布产物，不需要留档：跳过本步骤，同时跳过步骤 5（没有新分支可加入巡检列表，`istio-1.XX` 已在列表中且会随分支前进自动巡检最新小版本）。这种情况由用户明示或你主动向用户确认后再跳过，并在汇报中写明跳过原因。1.30.4 实测即属此例（mesh v2.2 未发版，未留档 `istio-1.30.3`）。
 
 ### 步骤 5：更新 istio-base-images 分支列表
 

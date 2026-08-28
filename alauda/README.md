@@ -28,8 +28,6 @@ git cherry-pick c6c635e7c204883d3d7eba74dd3fb63f165a00fb
 
 机械步骤已脚本化（见 [skills/sync-upstream/scripts/](skills/sync-upstream/scripts/)），合并冲突解决与定制迁移核对由模型执行并在 PR 描述中逐条说明。skill 通过 `.claude/skills/sync-upstream` 软链接接入 Claude Code。
 
-TODO: 小版本升级还未真实测试过，在测试和优化过该 skill 后，删掉该 TODO。
-
 ## 漏洞修复
 
 镜像漏洞修复通过 Claude Code skill [`/fix-image-vulns`](skills/fix-image-vulns/SKILL.md) 完成（仅限显式调用，参数：一个或多个 Release Alauda Istio / Pull Request Builder 流水线 run，可混多个小版本）：
