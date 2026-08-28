@@ -58,6 +58,15 @@ main() {
       notice "$f 原 IMAGE_VERSION（$old_iv）是人为 pin（不同于旧基线默认值 $OLD_IV_DEFAULT）。\
 上游默认值已推进，本次已更新为新默认值，请在汇报中说明，由用户判断是否需要重新 pin。"
     fi
+    # 注释里常引用 build-tools 提交 SHA（可能在 IMAGE_VERSION 上方，也可能在下方的
+    # GOTOOLCHAIN 注释里），值更新后这些引用就过时了，全文件搜出来交给模型改写
+    local old_sha new_sha
+    old_sha="${old_iv##*-}"
+    new_sha="${NEW_IV##*-}"
+    if [[ -n "$old_sha" ]] && grep -qF "${old_sha:0:8}" "$f"; then
+      notice "$f 中仍有注释引用旧 build-tools 提交 ${old_sha:0:8}，请用 Edit 改写为 ${new_sha:0:8}："
+      grep -n "${old_sha:0:8}" "$f" | sed 's/^/    /'
+    fi
     # IMAGE_VERSION 上方的注释多为历史 pin 的说明，值更新后可能过时，交给模型审阅
     if grep -B2 '^[[:space:]]*IMAGE_VERSION:' "$f" | grep -q '#'; then
       notice "$f 中 IMAGE_VERSION 附近有注释，请审阅是否已过时（过时则用 Edit 删除或改写）："
@@ -125,12 +134,21 @@ main() {
     notice "BASE_VERSION 保持从上一版继承的值即可：istio-base-images 构建出新版基础镜像后由 bot 自动更新。"
   else
     # 小版本：GOTOOLCHAIN pin 是否继续保留由用户判断（新 build-tools 的 Go 可能已追上）
+    local pinned=false
     for f in "$PR_YAML" "$REL_YAML"; do
       if grep -qE '^[[:space:]]*GOTOOLCHAIN:' "$f"; then
+        pinned=true
         notice "$f 存在 GOTOOLCHAIN pin: $(grep -E '^[[:space:]]*GOTOOLCHAIN:' "$f" | head -1 | sed 's/^[[:space:]]*//')。\
 IMAGE_VERSION 更新后请在汇报中提示用户评估该 pin 是否仍需保留。"
       fi
     done
+    # 判据是新 build-tools 镜像内置的 Go 版本：pin 低于它等于用更老的 Go 编译（上游小版本
+    # 常同步升 Go，此时应把 pin 抬到内置版本）；等于它则容器内命中本地工具链无需下载；
+    # 高于它（CVE 修复场景）会在容器内下载工具链，可接受
+    if [[ "$pinned" == true ]]; then
+      notice "查新 build-tools 内置 Go 版本：\
+gh api repos/istio/tools/contents/docker/build-tools/Dockerfile?ref=${NEW_IV##*-} --jq .content | base64 -d | grep GOLANG_IMAGE"
+    fi
   fi
 
   echo
