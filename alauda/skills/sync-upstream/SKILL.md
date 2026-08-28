@@ -38,6 +38,8 @@ disable-model-invocation: true
   4. samples 定制（tcp-echo、bookinfo），cherry-pick 清单维护在 `alauda/README.md` 的「Alaude Istio 源码改动历史」章节。
 - 分支模型：`istio-1.XX` 大版本分支始终指向该大版本的**最新**小版本，最新大版本分支同时是 GitHub 默认分支；升级小版本前的旧状态留档为 `istio-1.XX.Y` 分支；**只维护最新两个大版本**。
 - 基础镜像来自 alauda-mesh/istio-base-images，其 cve-check 流水线按 `DEFAULT_ISTIO_BRANCHES` 巡检各分支并构建基础镜像；本仓库 workflows 里的 `BASE_VERSION` 由 bot 自动更新，**同步时不要手动改**。
+- build-tools 镜像路径由 workflows 的 `TOOLS_REGISTRY_PROVIDER` + `PROJECT_ID` + `IMAGE_VERSION` 拼成（见 `common/scripts/setup_env.sh`），两者都已在 workflows 里显式钉死，**不要删掉改回默认值**：上游 1.30 把默认值从 `gcr.io`+`istio-testing` 换成了 `registry.istio.io`+`testing`，只改其一会拼出不存在的路径。
+- **`IMAGE_VERSION` 推进后，self-hosted runner 会首次真正联网拉取 build-tools（约 2GB、十几分钟）**，此前一直命中本地缓存的网络问题会在这一刻暴露。拉镜像的是 runner 上的 dockerd，**它不读 job 里的 `http_proxy`**，必须自己配代理（`/etc/systemd/system/docker.service.d/http-proxy.conf`，2026-08-28 已配置）。若 PR 流水线报 `docker: error pulling image configuration ... i/o timeout`，先查 `systemctl show docker --property=Environment`，而不是怀疑同步内容。
 - 脚本间通过 `out/sync-upstream/state.env` 传递状态（`out/` 已在 gitignore 中）。
 - 入口脚本会在改动工作区之前探测 github.com 推送凭据（devcontainer 的 credential helper/askpass 可能随宿主 IDE 会话失效，而 gh 认证仍正常）；探测失败时按报错提示执行 `gh auth setup-git` 后重试即可。
 - 全程禁止 `git commit --amend`，一律创建新 commit。升级 PR 建立之前不要 push 同步分支。两个例外（脚本内置）：大版本的 `istio-1.XX` 分支创建后立即 push（内容与上游 tag 完全一致）；小版本的历史分支 push 的是远端已有的旧提交。
