@@ -74,6 +74,14 @@ spec:
       - name: details
         image: registry.istio.io/release/examples-bookinfo-details-v1:1.20.3
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
         ports:
         - containerPort: 9080
         livenessProbe:
@@ -145,6 +153,14 @@ spec:
       - name: ratings
         image: registry.istio.io/release/examples-bookinfo-ratings-v1:1.20.3
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
         ports:
         - containerPort: 9080
         livenessProbe:
@@ -216,6 +232,14 @@ spec:
       - name: reviews
         image: registry.istio.io/release/examples-bookinfo-reviews-v1:1.20.3
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
         env:
         - name: LOG_DIR
           value: "/tmp/logs"
@@ -256,6 +280,14 @@ spec:
       - name: reviews
         image: registry.istio.io/release/examples-bookinfo-reviews-v2:1.20.3
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
         env:
         - name: LOG_DIR
           value: "/tmp/logs"
@@ -296,6 +328,14 @@ spec:
       - name: reviews
         image: registry.istio.io/release/examples-bookinfo-reviews-v3:1.20.3
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
         env:
         - name: LOG_DIR
           value: "/tmp/logs"
@@ -364,6 +404,14 @@ spec:
       - name: productpage
         image: registry.istio.io/release/examples-bookinfo-productpage-v1:1.20.3
         imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
         ports:
         - containerPort: 9080
         startupProbe:
