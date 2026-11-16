@@ -102,7 +102,7 @@ jobs:
         env:
           HUB: ${{ env.IMAGE_REPOSITORY }}
           ISTIO_BASE_REGISTRY: ghcr.io/alauda-mesh
-          BASE_VERSION: 2026-07-15T08-33-44
+          BASE_VERSION: 2026-11-16T05-02-13
           TOOLS_REGISTRY_PROVIDER: registry.istio.io
           # 与 TOOLS_REGISTRY_PROVIDER 配套显式钉死：build-tools 在 registry.istio.io 下的
           # 路径是 testing/build-tools，而 gcr.io 下是 istio-testing/build-tools；上游 1.30
