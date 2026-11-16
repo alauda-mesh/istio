@@ -100,7 +100,7 @@ jobs:
         env:
           HUB: ${{ env.IMAGE_REPOSITORY }}
           ISTIO_BASE_REGISTRY: ghcr.io/alauda-mesh
-          BASE_VERSION: 2026-07-15T08-33-44
+          BASE_VERSION: 2026-11-16T05-02-13
           TOOLS_REGISTRY_PROVIDER: gcr.m.daocloud.io
           # 升级 build-tools 至上游 release-1.28 最新（Go 1.25.10）
           IMAGE_VERSION: release-1.28-879cab1fff4bf7578feb9973cac1e413b6e16147
